@@ -87,7 +87,13 @@ export default function FestaMap({ dados }: { dados: FestasGeoJSON }) {
         [1.0, 43.5],
       ],
       minZoom: 5,
-      attributionControl: { compact: true },
+      attributionControl: false,
+    });
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+    map.once("idle", () => {
+      containerRef.current
+        ?.querySelector(".maplibregl-ctrl-attrib")
+        ?.classList.remove("maplibregl-compact-show");
     });
     mapRef.current = map;
 
