@@ -16,6 +16,30 @@ const PORTUGAL_BOUNDS: [[number, number], [number, number]] = [
   [-6.1, 42.25],
 ];
 
+function pinSVG(cor: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+    <path d="M32 4 C18.7 4 9 14.2 9 27.2 C9 42 27 56.8 31 59.8 a1.6 1.6 0 0 0 2 0 C37 56.8 55 42 55 27.2 C55 14.2 45.3 4 32 4 Z" fill="${cor}"/>
+    <circle cx="32" cy="27" r="13" fill="#FFF8F0"/>
+    <path d="M32 17 l2.2 6.2 6.2 2.2 -6.2 2.2 -2.2 6.2 -2.2 -6.2 -6.2 -2.2 6.2 -2.2 Z" fill="${cor === "#FFB703" ? "#E63946" : "#FFB703"}"/>
+    <circle cx="22" cy="20" r="1.6" fill="#2A9D8F"/>
+    <circle cx="42" cy="20" r="1.6" fill="#2A9D8F"/>
+    <circle cx="24" cy="35" r="1.6" fill="#1D3557"/>
+    <circle cx="40" cy="35" r="1.6" fill="#1D3557"/>
+  </svg>`;
+}
+
+function carregarPin(map: maplibregl.Map, id: string, cor: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image(64, 64);
+    img.onload = () => {
+      if (!map.hasImage(id)) map.addImage(id, img, { pixelRatio: 2 });
+      resolve();
+    };
+    img.onerror = reject;
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(pinSVG(cor))}`;
+  });
+}
+
 function formatarDatas(inicio: string, fim: string | null): string {
   const fmt = new Intl.DateTimeFormat("pt-PT", { day: "numeric", month: "long" });
   const dInicio = new Date(inicio + "T12:00:00");
@@ -71,7 +95,13 @@ export default function FestaMap({ dados }: { dados: FestasGeoJSON }) {
       "bottom-right",
     );
 
-    map.on("load", () => {
+    map.on("load", async () => {
+      await Promise.all([
+        carregarPin(map, "pin-a-decorrer", CORES.a_decorrer),
+        carregarPin(map, "pin-em-breve", CORES.em_breve),
+        carregarPin(map, "pin-futuro", CORES.futuro),
+      ]);
+
       map.addSource("festas", {
         type: "geojson",
         data: dados,
@@ -108,28 +138,22 @@ export default function FestaMap({ dados }: { dados: FestasGeoJSON }) {
 
       map.addLayer({
         id: "festas-pontos",
-        type: "circle",
+        type: "symbol",
         source: "festas",
         filter: ["!", ["has", "point_count"]],
-        paint: {
-          "circle-color": [
+        layout: {
+          "icon-image": [
             "match",
             ["get", "estado_temporal"],
             "a_decorrer",
-            CORES.a_decorrer,
+            "pin-a-decorrer",
             "em_breve",
-            CORES.em_breve,
-            CORES.futuro,
+            "pin-em-breve",
+            "pin-futuro",
           ],
-          "circle-radius": [
-            "match",
-            ["get", "estado_temporal"],
-            "a_decorrer",
-            10,
-            8,
-          ],
-          "circle-stroke-width": 2.5,
-          "circle-stroke-color": "#FFF8F0",
+          "icon-size": ["match", ["get", "estado_temporal"], "a_decorrer", 1.15, 1],
+          "icon-anchor": "bottom",
+          "icon-allow-overlap": true,
         },
       });
 
@@ -149,7 +173,7 @@ export default function FestaMap({ dados }: { dados: FestasGeoJSON }) {
         if (!feature) return;
         const coords = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
         const props = feature.properties as unknown as FestaFeature["properties"];
-        new maplibregl.Popup({ offset: 14, maxWidth: "300px" })
+        new maplibregl.Popup({ offset: [0, -38], maxWidth: "300px" })
           .setLngLat(coords)
           .setHTML(popupHTML(props))
           .addTo(map);
