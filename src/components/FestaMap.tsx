@@ -17,7 +17,7 @@ const PORTUGAL_BOUNDS: [[number, number], [number, number]] = [
 ];
 
 function pinSVG(cor: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256">
     <path d="M32 4 C18.7 4 9 14.2 9 27.2 C9 42 27 56.8 31 59.8 a1.6 1.6 0 0 0 2 0 C37 56.8 55 42 55 27.2 C55 14.2 45.3 4 32 4 Z" fill="${cor}"/>
     <circle cx="32" cy="27" r="13" fill="#FFF8F0"/>
     <path d="M32 17 l2.2 6.2 6.2 2.2 -6.2 2.2 -2.2 6.2 -2.2 -6.2 -6.2 -2.2 6.2 -2.2 Z" fill="${cor === "#FFB703" ? "#E63946" : "#FFB703"}"/>
@@ -30,9 +30,9 @@ function pinSVG(cor: string): string {
 
 function carregarPin(map: maplibregl.Map, id: string, cor: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const img = new window.Image(64, 64);
+    const img = new window.Image(256, 256);
     img.onload = () => {
-      if (!map.hasImage(id)) map.addImage(id, img, { pixelRatio: 2 });
+      if (!map.hasImage(id)) map.addImage(id, img, { pixelRatio: 4 });
       resolve();
     };
     img.onerror = reject;
@@ -151,7 +151,7 @@ export default function FestaMap({ dados }: { dados: FestasGeoJSON }) {
             "pin-em-breve",
             "pin-futuro",
           ],
-          "icon-size": ["match", ["get", "estado_temporal"], "a_decorrer", 1.15, 1],
+          "icon-size": ["match", ["get", "estado_temporal"], "a_decorrer", 0.72, 0.62],
           "icon-anchor": "bottom",
           "icon-allow-overlap": true,
         },
