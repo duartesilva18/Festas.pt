@@ -82,6 +82,11 @@ export default function FestaMap({ dados }: { dados: FestasGeoJSON }) {
       style: "https://tiles.openfreemap.org/styles/liberty",
       bounds: PORTUGAL_BOUNDS,
       fitBoundsOptions: { padding: 24 },
+      maxBounds: [
+        [-11.2, 36.2],
+        [-4.6, 42.9],
+      ],
+      minZoom: 5.5,
       attributionControl: { compact: true },
     });
     mapRef.current = map;
