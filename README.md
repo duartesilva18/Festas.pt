@@ -1,4 +1,4 @@
-# Festas.pt
+# Achafestas.pt
 
 Mapa interativo de festas populares, romarias e feiras de Portugal — estilo fogos.pt, mas para festas.
 

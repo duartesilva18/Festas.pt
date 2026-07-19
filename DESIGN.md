@@ -1,4 +1,4 @@
-# Festas.pt — Identidade visual
+# Achafestas.pt — Identidade visual
 
 ## Logotipo
 
@@ -11,7 +11,7 @@ Conceito: o pin de mapa (o mapa é a app) transformado em festa — faísca de f
 
 | Nome | Hex | Uso |
 |---|---|---|
-| Vermelho romaria | `#E63946` | Cor primária — CTAs, pin do logo, destaque `.pt`, marcadores de festas a decorrer |
+| Vermelho romaria | `#E63946` | Cor primária — CTAs, pin do logo, destaque "festas" no wordmark, marcadores de festas a decorrer |
 | Amarelo arraial | `#FFB703` | Acento — faísca, destaques, badges "este fim de semana" |
 | Verde manjerico | `#2A9D8F` | Secundária — estados positivos, selo "verificado", categorias |
 | Azul noite | `#1D3557` | Texto principal, wordmark, fundos escuros |
