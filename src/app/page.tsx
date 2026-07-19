@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import FestaMap from "@/components/FestaMap";
 import { fetchFestasGeoJSON } from "@/lib/eventos";
 
@@ -14,34 +15,52 @@ export default async function Home() {
   const dados = await fetchFestasGeoJSON();
 
   return (
-    <main className="relative h-dvh w-full overflow-hidden bg-[#FFF8F0]">
-      <FestaMap dados={dados} />
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-white">
+      <header className="z-20 flex h-16 shrink-0 items-center justify-between border-b border-[#1A2E4F]/10 bg-white px-4 sm:px-6">
+        <Link href="/" className="flex items-center">
+          <Image src="/logo.svg" alt="Achafestas" width={188} height={40} priority />
+        </Link>
 
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between p-3 sm:p-4">
-        <div className="pointer-events-auto rounded-2xl bg-[#FFF8F0]/95 px-4 py-2.5 shadow-lg ring-1 ring-[#1D3557]/10 backdrop-blur">
-          <Image src="/logo.svg" alt="Achafestas" width={172} height={35} priority />
-          <p className="mt-0.5 hidden text-xs font-medium text-[#457B9D] sm:block">
-            O mapa das festas populares de Portugal
-          </p>
-        </div>
-        <div className="pointer-events-auto rounded-full bg-[#FFF8F0]/95 px-4 py-2 text-sm font-semibold text-[#1D3557] shadow-lg ring-1 ring-[#1D3557]/10 backdrop-blur">
-          {dados.features.length} festas no mapa
-        </div>
+        <nav className="flex items-center gap-2 sm:gap-5">
+          <span className="hidden text-sm font-medium text-[#1A2E4F]/70 md:block">
+            {dados.features.length} festas no mapa
+          </span>
+          <button
+            type="button"
+            className="cursor-not-allowed rounded-full bg-[#EC2456] px-5 py-2 text-sm font-semibold text-white opacity-90 transition hover:opacity-100"
+            title="Disponível em breve"
+          >
+            Entrar
+          </button>
+        </nav>
       </header>
 
-      <aside className="pointer-events-none absolute bottom-6 left-3 z-10 sm:left-4">
-        <ul className="pointer-events-auto space-y-1.5 rounded-2xl bg-[#FFF8F0]/95 px-4 py-3 shadow-lg ring-1 ring-[#1D3557]/10 backdrop-blur">
-          {LEGENDA.map((item) => (
-            <li key={item.texto} className="flex items-center gap-2.5 text-xs font-medium text-[#1D3557]">
-              <span
-                className="inline-block size-3 rounded-full ring-2 ring-[#FFF8F0]"
-                style={{ backgroundColor: item.cor }}
-              />
-              {item.texto}
-            </li>
-          ))}
-        </ul>
-      </aside>
-    </main>
+      <main className="relative z-0 min-h-0 flex-1">
+        <FestaMap dados={dados} />
+
+        <aside className="pointer-events-none absolute bottom-4 left-4 z-10">
+          <ul className="pointer-events-auto space-y-1.5 rounded-xl bg-white/95 px-4 py-3 shadow-md ring-1 ring-[#1A2E4F]/10 backdrop-blur">
+            {LEGENDA.map((item) => (
+              <li key={item.texto} className="flex items-center gap-2.5 text-xs font-medium text-[#1A2E4F]">
+                <span
+                  className="inline-block size-3 rounded-full"
+                  style={{ backgroundColor: item.cor }}
+                />
+                {item.texto}
+              </li>
+            ))}
+          </ul>
+        </aside>
+      </main>
+
+      <footer className="z-20 flex h-9 shrink-0 items-center justify-between border-t border-[#1A2E4F]/10 bg-white px-4 text-[11px] text-[#1A2E4F]/60 sm:px-6">
+        <p>© {new Date().getFullYear()} Achafestas · Todos os direitos reservados</p>
+        <nav className="flex items-center gap-4">
+          <span className="hidden sm:inline">Dados verificados com as organizações</span>
+          <Link href="/termos" className="hover:text-[#1A2E4F]">Termos</Link>
+          <Link href="/privacidade" className="hover:text-[#1A2E4F]">Privacidade</Link>
+        </nav>
+      </footer>
+    </div>
   );
 }
