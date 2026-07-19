@@ -5,7 +5,9 @@
 - [public/logo.svg](public/logo.svg) — versão completa (varal de bandeirinhas + pin + wordmark)
 - [public/logo-mark.svg](public/logo-mark.svg) — símbolo isolado (favicon, marcadores do mapa, app icon)
 
-Conceito: o pin de mapa (o mapa é a app) transformado em festa — faísca de fogo de artifício no centro, luzes de arraial à volta, varal de bandeirinhas por cima.
+Conceito: o pin de mapa (o mapa é a app) com uma romaria lá dentro — igreja com pessoas, varal de bandeirinhas e fogo de artifício. Pin com gradiente laranja→rosa (`#F97B16` → `#EC2456`), silhueta em azul noite `#1A2E4F`.
+
+Nos marcadores do mapa e tamanhos pequenos usa-se a versão simplificada (pin liso com faísca) — o detalhe da igreja não sobrevive abaixo de ~48px.
 
 ## Paleta de cores
 
