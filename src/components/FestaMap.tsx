@@ -83,10 +83,10 @@ export default function FestaMap({ dados }: { dados: FestasGeoJSON }) {
       bounds: PORTUGAL_BOUNDS,
       fitBoundsOptions: { padding: 24 },
       maxBounds: [
-        [-11.2, 36.2],
-        [-4.6, 42.9],
+        [-16.5, 35.6],
+        [1.0, 43.5],
       ],
-      minZoom: 5.5,
+      minZoom: 5,
       attributionControl: { compact: true },
     });
     mapRef.current = map;
