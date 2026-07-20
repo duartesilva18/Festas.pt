@@ -4,12 +4,7 @@ import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { FestasGeoJSON, FestaFeature } from "@/lib/eventos";
-
-const CORES = {
-  a_decorrer: "#E63946",
-  em_breve: "#FFB703",
-  futuro: "#457B9D",
-} as const;
+import { CORES, type FestaSelecionada } from "@/lib/festa-ui";
 
 const PORTUGAL_BOUNDS: [[number, number], [number, number]] = [
   [-9.75, 36.8],
@@ -40,41 +35,26 @@ function carregarPin(map: maplibregl.Map, id: string, cor: string): Promise<void
   });
 }
 
-function formatarDatas(inicio: string, fim: string | null): string {
-  const fmt = new Intl.DateTimeFormat("pt-PT", { day: "numeric", month: "long" });
-  const dInicio = new Date(inicio + "T12:00:00");
-  if (!fim || fim === inicio) return fmt.format(dInicio);
-  const dFim = new Date(fim + "T12:00:00");
-  if (dInicio.getMonth() === dFim.getMonth()) {
-    return `${dInicio.getDate()}–${dFim.getDate()} de ${new Intl.DateTimeFormat("pt-PT", { month: "long" }).format(dFim)}`;
-  }
-  return `${fmt.format(dInicio)} – ${fmt.format(dFim)}`;
+function paraSelecao(f: GeoJSON.Feature): FestaSelecionada {
+  return {
+    props: f.properties as unknown as FestaFeature["properties"],
+    lngLat: (f.geometry as GeoJSON.Point).coordinates as [number, number],
+  };
 }
 
-function popupHTML(p: FestaFeature["properties"]): string {
-  const cor = CORES[p.estado_temporal];
-  const etiqueta =
-    p.estado_temporal === "a_decorrer"
-      ? "A decorrer"
-      : p.estado_temporal === "em_breve"
-        ? "Muito em breve"
-        : "Mais tarde";
-  return `
-    <div style="font-family:inherit;min-width:230px;max-width:270px">
-      <span style="display:inline-flex;align-items:center;gap:6px;background:${cor}1a;color:${cor};font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:4px 10px;border-radius:999px">
-        <span style="width:7px;height:7px;border-radius:999px;background:${cor}"></span>${etiqueta}
-      </span>
-      <h3 style="margin:10px 0 3px;font-size:16px;line-height:1.3;font-weight:700;color:#1A2E4F">${p.nome}</h3>
-      <p style="margin:0;font-size:13px;color:#1A2E4F99">${p.concelho} · ${p.distrito}</p>
-      <p style="margin:8px 0 0;display:inline-block;font-size:12.5px;font-weight:600;color:#1A2E4F;background:#1A2E4F0a;border-radius:8px;padding:4px 8px">📅 ${formatarDatas(p.data_inicio, p.data_fim)}</p>
-      <a href="/festas/${p.concelho_slug}/${p.slug}"
-         style="display:block;margin-top:12px;text-align:center;background:linear-gradient(180deg,#F97B16,#EC2456);color:#fff;font-size:13.5px;font-weight:700;text-decoration:none;padding:9px 0;border-radius:999px;box-shadow:0 2px 8px rgba(236,36,86,.3)">Ver festa</a>
-    </div>`;
-}
+type Props = {
+  dados: FestasGeoJSON;
+  aoEscolherFesta?: (sel: FestaSelecionada) => void;
+  aoEscolherGrupo?: (sels: FestaSelecionada[]) => void;
+};
 
-export default function FestaMap({ dados }: { dados: FestasGeoJSON }) {
+export default function FestaMap({ dados, aoEscolherFesta, aoEscolherGrupo }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const escolherFestaRef = useRef(aoEscolherFesta);
+  const escolherGrupoRef = useRef(aoEscolherGrupo);
+  escolherFestaRef.current = aoEscolherFesta;
+  escolherGrupoRef.current = aoEscolherGrupo;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -91,13 +71,14 @@ export default function FestaMap({ dados }: { dados: FestasGeoJSON }) {
       minZoom: 5,
       attributionControl: false,
     });
+    mapRef.current = map;
+
     map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
     map.once("idle", () => {
       containerRef.current
         ?.querySelector(".maplibregl-ctrl-attrib")
         ?.classList.remove("maplibregl-compact-show");
     });
-    mapRef.current = map;
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
     map.addControl(
@@ -174,6 +155,10 @@ export default function FestaMap({ dados }: { dados: FestasGeoJSON }) {
         const feature = map.queryRenderedFeatures(e.point, { layers: ["clusters"] })[0];
         const clusterId = feature.properties?.cluster_id;
         const source = map.getSource("festas") as maplibregl.GeoJSONSource;
+
+        const folhas = await source.getClusterLeaves(clusterId, 100, 0);
+        escolherGrupoRef.current?.(folhas.map(paraSelecao));
+
         const zoom = await source.getClusterExpansionZoom(clusterId);
         map.easeTo({
           center: (feature.geometry as GeoJSON.Point).coordinates as [number, number],
@@ -184,12 +169,9 @@ export default function FestaMap({ dados }: { dados: FestasGeoJSON }) {
       map.on("click", "festas-pontos", (e) => {
         const feature = e.features?.[0];
         if (!feature) return;
-        const coords = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
-        const props = feature.properties as unknown as FestaFeature["properties"];
-        new maplibregl.Popup({ offset: [0, -38], maxWidth: "300px" })
-          .setLngLat(coords)
-          .setHTML(popupHTML(props))
-          .addTo(map);
+        const sel = paraSelecao(feature);
+        escolherFestaRef.current?.(sel);
+        map.easeTo({ center: sel.lngLat, padding: { left: 400 } });
       });
 
       for (const layer of ["clusters", "festas-pontos"]) {

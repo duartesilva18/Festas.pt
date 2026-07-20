@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import FestaMap from "@/components/FestaMap";
+import MapaFestas from "@/components/MapaFestas";
 import { fetchFestasGeoJSON } from "@/lib/eventos";
 
 export const revalidate = 300;
@@ -69,9 +69,9 @@ export default async function Home() {
       </header>
 
       <main className="relative z-0 min-h-0 flex-1">
-        <FestaMap dados={dados} />
+        <MapaFestas dados={dados} />
 
-        <aside className="pointer-events-none absolute bottom-4 left-4 z-10">
+        <aside className="pointer-events-none absolute bottom-4 right-14 z-10">
           <ul className="pointer-events-auto space-y-1.5 rounded-xl bg-white/95 px-4 py-3 shadow-md ring-1 ring-[#1A2E4F]/10 backdrop-blur">
             {LEGENDA.map((item) => (
               <li key={item.texto} className="flex items-center gap-2.5 text-xs font-medium text-[#1A2E4F]">
