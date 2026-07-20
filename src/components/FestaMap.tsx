@@ -60,13 +60,15 @@ function popupHTML(p: FestaFeature["properties"]): string {
         ? "Muito em breve"
         : "Mais tarde";
   return `
-    <div style="font-family:inherit;min-width:220px;max-width:260px">
-      <span style="display:inline-block;background:${cor};color:#FFF8F0;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px">${etiqueta}</span>
-      <h3 style="margin:8px 0 2px;font-size:16px;line-height:1.25;color:#1D3557">${p.nome}</h3>
-      <p style="margin:0 0 4px;font-size:13px;color:#457B9D">${p.concelho} · ${p.distrito}</p>
-      <p style="margin:0;font-size:13px;font-weight:600;color:#1D3557">${formatarDatas(p.data_inicio, p.data_fim)}</p>
+    <div style="font-family:inherit;min-width:230px;max-width:270px">
+      <span style="display:inline-flex;align-items:center;gap:6px;background:${cor}1a;color:${cor};font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:4px 10px;border-radius:999px">
+        <span style="width:7px;height:7px;border-radius:999px;background:${cor}"></span>${etiqueta}
+      </span>
+      <h3 style="margin:10px 0 3px;font-size:16px;line-height:1.3;font-weight:700;color:#1A2E4F">${p.nome}</h3>
+      <p style="margin:0;font-size:13px;color:#1A2E4F99">${p.concelho} · ${p.distrito}</p>
+      <p style="margin:8px 0 0;display:inline-block;font-size:12.5px;font-weight:600;color:#1A2E4F;background:#1A2E4F0a;border-radius:8px;padding:4px 8px">📅 ${formatarDatas(p.data_inicio, p.data_fim)}</p>
       <a href="/festas/${p.concelho_slug}/${p.slug}"
-         style="display:inline-block;margin-top:10px;font-size:13px;font-weight:700;color:${CORES.a_decorrer};text-decoration:none">Ver festa →</a>
+         style="display:block;margin-top:12px;text-align:center;background:linear-gradient(180deg,#F97B16,#EC2456);color:#fff;font-size:13.5px;font-weight:700;text-decoration:none;padding:9px 0;border-radius:999px;box-shadow:0 2px 8px rgba(236,36,86,.3)">Ver festa</a>
     </div>`;
 }
 
