@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Navbar from "@/components/Navbar";
 import { fetchFestaDetalhe, type FestaDetalhe } from "@/lib/festa-detalhe";
 import { CORES, ETIQUETAS } from "@/lib/festa-ui";
 
@@ -102,16 +102,7 @@ export default async function PaginaFesta({ params }: Params) {
     <div className="min-h-dvh bg-white text-[#1A2E4F]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(festa)) }} />
 
-      <header className="border-b border-[#1A2E4F]/10">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-5">
-          <Link href="/" className="flex items-center gap-1.5 text-sm font-medium text-[#1A2E4F]/70 transition hover:text-[#1A2E4F]">
-            <Icone d="M15 5l-7 7 7 7" /> Mapa
-          </Link>
-          <Link href="/">
-            <Image src="/logo.svg" alt="Achafestas" width={124} height={26} />
-          </Link>
-        </div>
-      </header>
+      <Navbar />
 
       <nav className="mx-auto max-w-5xl px-5 pt-5 text-xs text-[#1A2E4F]/50">
         <Link href="/" className="hover:text-[#1A2E4F]">Início</Link>
