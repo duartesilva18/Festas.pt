@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
-import FestaMap from "@/components/FestaMap";
+import { useRef, useState } from "react";
+import FestaMap, { type FestaMapHandle } from "@/components/FestaMap";
 import type { FestasGeoJSON } from "@/lib/eventos";
 import { CORES, ETIQUETAS, formatarDatas, type FestaSelecionada } from "@/lib/festa-ui";
 
@@ -214,9 +214,11 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
   const [painel, setPainel] = useState<Painel>({ modo: "fechado" });
   const [lista, setLista] = useState<FestaSelecionada[]>([]);
   const [aFechar, setAFechar] = useState(false);
+  const mapaRef = useRef<FestaMapHandle>(null);
 
   function fechar() {
     setAFechar(true);
+    mapaRef.current?.reporVista();
     setTimeout(() => {
       setPainel({ modo: "fechado" });
       setAFechar(false);
@@ -234,6 +236,7 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
   return (
     <>
       <FestaMap
+        ref={mapaRef}
         dados={dados}
         aoEscolherFesta={(festa) => abrir({ modo: "detalhe", festa, deLista: false })}
         aoEscolherGrupo={(festas) => {

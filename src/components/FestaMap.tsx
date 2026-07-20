@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { FestasGeoJSON, FestaFeature } from "@/lib/eventos";
@@ -58,13 +58,30 @@ type Props = {
   aoEscolherGrupo?: (sels: FestaSelecionada[]) => void;
 };
 
-export default function FestaMap({ dados, aoEscolherFesta, aoEscolherGrupo }: Props) {
+export type FestaMapHandle = {
+  reporVista: () => void;
+};
+
+const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
+  { dados, aoEscolherFesta, aoEscolherGrupo },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const escolherFestaRef = useRef(aoEscolherFesta);
   const escolherGrupoRef = useRef(aoEscolherGrupo);
   escolherFestaRef.current = aoEscolherFesta;
   escolherGrupoRef.current = aoEscolherGrupo;
+
+  useImperativeHandle(ref, () => ({
+    reporVista() {
+      mapRef.current?.fitBounds(PORTUGAL_BOUNDS, {
+        padding: 24,
+        duration: 900,
+        essential: true,
+      });
+    },
+  }));
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -203,4 +220,6 @@ export default function FestaMap({ dados, aoEscolherFesta, aoEscolherGrupo }: Pr
       aria-label="Mapa de festas em Portugal"
     />
   );
-}
+});
+
+export default FestaMap;
