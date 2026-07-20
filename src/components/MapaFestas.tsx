@@ -213,34 +213,55 @@ function ListaFestas({
 export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
   const [painel, setPainel] = useState<Painel>({ modo: "fechado" });
   const [lista, setLista] = useState<FestaSelecionada[]>([]);
+  const [aFechar, setAFechar] = useState(false);
+
+  function fechar() {
+    setAFechar(true);
+    setTimeout(() => {
+      setPainel({ modo: "fechado" });
+      setAFechar(false);
+    }, 200);
+  }
+
+  function abrir(novo: Painel) {
+    setAFechar(false);
+    setPainel(novo);
+  }
+
+  const chaveConteudo =
+    painel.modo === "detalhe" ? `detalhe-${painel.festa.props.id}` : painel.modo;
 
   return (
     <>
       <FestaMap
         dados={dados}
-        aoEscolherFesta={(festa) => setPainel({ modo: "detalhe", festa, deLista: false })}
+        aoEscolherFesta={(festa) => abrir({ modo: "detalhe", festa, deLista: false })}
         aoEscolherGrupo={(festas) => {
           setLista(festas);
-          setPainel({ modo: "lista", festas });
+          abrir({ modo: "lista", festas });
         }}
       />
 
       {painel.modo !== "fechado" && (
-        <div className="absolute bottom-4 left-4 top-4 z-10 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-[#1A2E4F]/10">
-          {painel.modo === "detalhe" ? (
-            <DetalheFesta
-              festa={painel.festa}
-              deLista={painel.deLista}
-              aoVoltar={() => setPainel({ modo: "lista", festas: lista })}
-              aoFechar={() => setPainel({ modo: "fechado" })}
-            />
-          ) : (
-            <ListaFestas
-              festas={painel.festas}
-              aoEscolher={(festa) => setPainel({ modo: "detalhe", festa, deLista: true })}
-              aoFechar={() => setPainel({ modo: "fechado" })}
-            />
-          )}
+        <div
+          className={`painel-entrada absolute bottom-4 left-4 top-4 z-10 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-[#1A2E4F]/10 ${aFechar ? "painel-saida" : ""}`}
+        >
+          <div key={chaveConteudo} className="conteudo-entrada h-full">
+            {painel.modo === "detalhe" ? (
+              <DetalheFesta
+                festa={painel.festa}
+                deLista={painel.deLista}
+                aoVoltar={() => abrir({ modo: "lista", festas: lista })}
+                aoFechar={fechar}
+              />
+            ) : (
+              <ListaFestas
+                festas={painel.festas}
+                aoEscolher={(festa) => abrir({ modo: "detalhe", festa, deLista: true })}
+                aoFechar={fechar}
+              />
+            )}
+          </div>
         </div>
       )}
     </>
