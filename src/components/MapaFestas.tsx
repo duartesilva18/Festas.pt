@@ -148,7 +148,7 @@ function DetalheFesta({
         </div>
 
         <a href={`/festas/${p.concelho_slug}/${p.slug}`}
-          className="mt-2 flex items-center justify-center gap-1.5 rounded bg-[#1A2E4F] py-2.5 text-sm font-bold text-white transition hover:bg-[#24365a]">
+          className="mt-2 flex items-center justify-center gap-1.5 rounded bg-[#EC2456] py-2.5 text-sm font-bold text-white transition hover:bg-[#d11a47]">
           Ver página da festa
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 5l7 7-7 7" />

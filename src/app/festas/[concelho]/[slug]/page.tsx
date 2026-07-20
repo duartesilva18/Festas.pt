@@ -189,7 +189,7 @@ export default async function PaginaFesta({ params }: Params) {
                   </div>
                 )}
                 <a href={`${base}/calendario.ics`}
-                  className="flex items-center justify-center gap-2 rounded bg-[#1A2E4F] py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#24365a]">
+                  className="flex items-center justify-center gap-2 rounded bg-[#EC2456] py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#d11a47]">
                   <Icone d="M8 2v4 M16 2v4 M3 10h18 M5 4h14v16H5z M9 16l2 2 4-4" /> Adicionar ao calendário
                 </a>
               </div>

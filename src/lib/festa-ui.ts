@@ -1,9 +1,11 @@
 import type { EstadoTemporal, FestaFeature } from "@/lib/eventos";
 
+// Paleta da marca (ancorada no logo): rosa-vermelho primário, laranja
+// secundário, azul-noite reservado a texto. Estados: quente → neutro.
 export const CORES: Record<EstadoTemporal, string> = {
-  a_decorrer: "#E63946",
-  em_breve: "#FFB703",
-  futuro: "#457B9D",
+  a_decorrer: "#EC2456",
+  em_breve: "#F97B16",
+  futuro: "#8B93A7",
 };
 
 export const ETIQUETAS: Record<EstadoTemporal, string> = {

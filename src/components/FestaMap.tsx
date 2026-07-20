@@ -37,11 +37,11 @@ function pinSVG(cor: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256">
     <path d="M32 4 C18.7 4 9 14.2 9 27.2 C9 42 27 56.8 31 59.8 a1.6 1.6 0 0 0 2 0 C37 56.8 55 42 55 27.2 C55 14.2 45.3 4 32 4 Z" fill="${cor}"/>
     <circle cx="32" cy="27" r="13" fill="#FFF8F0"/>
-    <path d="M32 17 l2.2 6.2 6.2 2.2 -6.2 2.2 -2.2 6.2 -2.2 -6.2 -6.2 -2.2 6.2 -2.2 Z" fill="${cor === "#FFB703" ? "#E63946" : "#FFB703"}"/>
-    <circle cx="22" cy="20" r="1.6" fill="#2A9D8F"/>
-    <circle cx="42" cy="20" r="1.6" fill="#2A9D8F"/>
-    <circle cx="24" cy="35" r="1.6" fill="#1D3557"/>
-    <circle cx="40" cy="35" r="1.6" fill="#1D3557"/>
+    <path d="M32 17 l2.2 6.2 6.2 2.2 -6.2 2.2 -2.2 6.2 -2.2 -6.2 -6.2 -2.2 6.2 -2.2 Z" fill="${cor === "#F97B16" ? "#1A2E4F" : "#F97B16"}"/>
+    <circle cx="22" cy="20" r="1.6" fill="#1A2E4F"/>
+    <circle cx="42" cy="20" r="1.6" fill="#1A2E4F"/>
+    <circle cx="24" cy="35" r="1.6" fill="#1A2E4F"/>
+    <circle cx="40" cy="35" r="1.6" fill="#1A2E4F"/>
   </svg>`;
 }
 
@@ -178,7 +178,7 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
         source: "festas",
         filter: ["has", "point_count"],
         paint: {
-          "circle-color": "#E63946",
+          "circle-color": "#EC2456",
           "circle-radius": ["step", ["get", "point_count"], 18, 10, 24, 30, 30],
           "circle-stroke-width": 3,
           "circle-stroke-color": "#FFF8F0",

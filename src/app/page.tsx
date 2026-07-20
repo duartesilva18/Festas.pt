@@ -6,9 +6,9 @@ import { fetchFestasGeoJSON } from "@/lib/eventos";
 export const revalidate = 300;
 
 const LEGENDA = [
-  { cor: "#E63946", texto: "A decorrer" },
-  { cor: "#FFB703", texto: "Nos próximos 7 dias" },
-  { cor: "#457B9D", texto: "Mais tarde" },
+  { cor: "#EC2456", texto: "A decorrer" },
+  { cor: "#F97B16", texto: "Nos próximos 7 dias" },
+  { cor: "#8B93A7", texto: "Mais tarde" },
 ] as const;
 
 export default async function Home() {
@@ -39,8 +39,8 @@ export default async function Home() {
           <nav className="flex shrink-0 items-center gap-1 sm:gap-2">
             <span className="hidden items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-[#1A2E4F]/70 lg:flex">
               <span className="relative flex size-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#E63946] opacity-60" />
-                <span className="relative inline-flex size-2 rounded-full bg-[#E63946]" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#EC2456] opacity-60" />
+                <span className="relative inline-flex size-2 rounded-full bg-[#EC2456]" />
               </span>
               {dados.features.length} festas no mapa
             </span>

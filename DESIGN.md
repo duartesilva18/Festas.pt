@@ -11,24 +11,21 @@ Nos marcadores do mapa e tamanhos pequenos usa-se a versão simplificada (pin li
 
 ## Paleta de cores
 
-| Nome | Hex | Uso |
-|---|---|---|
-| Vermelho romaria | `#E63946` | Cor primária — CTAs, pin do logo, destaque "festas" no wordmark, marcadores de festas a decorrer |
-| Amarelo arraial | `#FFB703` | Acento — faísca, destaques, badges "este fim de semana" |
-| Verde manjerico | `#2A9D8F` | Secundária — estados positivos, selo "verificado", categorias |
-| Azul noite | `#1D3557` | Texto principal, wordmark, fundos escuros |
-| Branco festa | `#FFF8F0` | Fundo claro (off-white quente, papel de cartaz) |
-
-### Apoio
+Uma só regra: **rosa-vermelho é a cor de ação, laranja é o acento, azul-noite é só texto/escuro.** Nunca usar azul como cor de botão/ação.
 
 | Nome | Hex | Uso |
 |---|---|---|
-| Azul noite claro | `#457B9D` | Texto secundário, links |
-| Cinza festa | `#8D99AE` | Texto desativado, bordas |
+| Rosa-vermelho | `#EC2456` | **Cor primária** — todos os CTAs/botões, "festas" no wordmark, estado "a decorrer", clusters e pins ativos, links de destaque |
+| Laranja | `#F97B16` | Secundária/acento — topo do gradiente do pin, estado "nos próximos 7 dias" |
+| Azul-noite | `#1A2E4F` | Texto principal, "acha" no wordmark, silhueta do logo, ícones. **Nunca em botões de ação.** |
+| Slate neutro | `#8B93A7` | Estado "mais tarde", texto desativado, bordas |
+| Branco / cinza-claro | `#FFFFFF` / `#F5F6F8` | Fundos |
+
+Gradiente da marca (hero, botão "Entrar", faixa da navbar): `#F97B16` → `#EC2456`.
 
 ## Regras rápidas
 
-- Estados temporais no mapa: **a decorrer** = vermelho romaria (com pulso), **este fim de semana** = amarelo arraial, **futuro** = azul noite claro
-- `cancelada` = cinza com strikethrough; `provisoria` = contorno tracejado
-- Dark mode: fundo `#14213D` (azul noite mais profundo), texto `#FFF8F0`
-- Tipografia: system-ui/Inter, pesos 400/700; wordmark em 800
+- Estados temporais no mapa: **a decorrer** = `#EC2456` (com pulso), **próximos 7 dias** = `#F97B16`, **mais tarde** = `#8B93A7` (recua)
+- `cancelada` = slate com strikethrough; `provisoria` = contorno tracejado
+- Raios de canto discretos: 4–8px (nada de `rounded-2xl`/pílulas grandes — dá ar de jogo)
+- Tipografia: system-ui/Geist, pesos 400/700; wordmark em 800
