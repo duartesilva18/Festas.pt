@@ -5,6 +5,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { FestasGeoJSON, FestaFeature } from "@/lib/eventos";
 import { CORES, type FestaSelecionada } from "@/lib/festa-ui";
+import mascaraPortugal from "@/data/mascara-portugal.json";
 
 const PORTUGAL_BOUNDS: [[number, number], [number, number]] = [
   [-9.75, 36.8],
@@ -144,6 +145,24 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
         carregarPin(map, "pin-em-breve", CORES.em_breve),
         carregarPin(map, "pin-futuro", CORES.futuro),
       ]);
+
+      // Vela sobre tudo o que nao e Portugal continental (esbate a Espanha).
+      map.addSource("mascara", {
+        type: "geojson",
+        data: mascaraPortugal as GeoJSON.FeatureCollection,
+      });
+      map.addLayer({
+        id: "mascara-fora",
+        type: "fill",
+        source: "mascara",
+        paint: { "fill-color": "#EDF1F5", "fill-opacity": 0.7 },
+      });
+      map.addLayer({
+        id: "fronteira-pt",
+        type: "line",
+        source: "mascara",
+        paint: { "line-color": "#EC2456", "line-width": 1.2, "line-opacity": 0.45 },
+      });
 
       map.addSource("festas", {
         type: "geojson",
