@@ -11,6 +11,27 @@ const PORTUGAL_BOUNDS: [[number, number], [number, number]] = [
   [-6.1, 42.25],
 ];
 
+// O centro da camara fica sempre sobre Portugal: ve-se Espanha nas margens,
+// mas nao e possivel navegar para la.
+const CENTRO_LIMITES = { lngMin: -9.4, lngMax: -6.7, latMin: 37.0, latMax: 42.0 };
+
+function vigiarCentro(map: maplibregl.Map) {
+  let aRepor = false;
+  map.on("moveend", () => {
+    if (aRepor) {
+      aRepor = false;
+      return;
+    }
+    const c = map.getCenter();
+    const lng = Math.min(Math.max(c.lng, CENTRO_LIMITES.lngMin), CENTRO_LIMITES.lngMax);
+    const lat = Math.min(Math.max(c.lat, CENTRO_LIMITES.latMin), CENTRO_LIMITES.latMax);
+    if (lng !== c.lng || lat !== c.lat) {
+      aRepor = true;
+      map.easeTo({ center: [lng, lat], duration: 350 });
+    }
+  });
+}
+
 function pinSVG(cor: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256">
     <path d="M32 4 C18.7 4 9 14.2 9 27.2 C9 42 27 56.8 31 59.8 a1.6 1.6 0 0 0 2 0 C37 56.8 55 42 55 27.2 C55 14.2 45.3 4 32 4 Z" fill="${cor}"/>
@@ -101,6 +122,7 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
     mapRef.current = map;
 
     map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+    vigiarCentro(map);
     map.once("idle", () => {
       containerRef.current
         ?.querySelector(".maplibregl-ctrl-attrib")
