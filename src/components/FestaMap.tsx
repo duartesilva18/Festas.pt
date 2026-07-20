@@ -36,8 +36,18 @@ function carregarPin(map: maplibregl.Map, id: string, cor: string): Promise<void
 }
 
 function paraSelecao(f: GeoJSON.Feature): FestaSelecionada {
+  const props = { ...f.properties } as FestaFeature["properties"];
+  // MapLibre serializa arrays/objetos das propriedades em string JSON.
+  if (typeof props.categorias === "string") {
+    try {
+      props.categorias = JSON.parse(props.categorias);
+    } catch {
+      props.categorias = [];
+    }
+  }
+  if (!Array.isArray(props.categorias)) props.categorias = [];
   return {
-    props: f.properties as unknown as FestaFeature["properties"],
+    props,
     lngLat: (f.geometry as GeoJSON.Point).coordinates as [number, number],
   };
 }

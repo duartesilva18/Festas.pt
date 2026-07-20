@@ -160,7 +160,7 @@ function ListaFestas({
         <p className="mt-0.5 truncate text-sm text-[#1A2E4F]/60">{concelhos.join(" · ")}</p>
       </div>
 
-      <ul className="flex-1 divide-y divide-[#1A2E4F]/8 overflow-y-auto">
+      <ul className="flex-1 space-y-3 overflow-y-auto p-4">
         {ordenadas.map((f) => {
           const p = f.props;
           const cor = CORES[p.estado_temporal];
@@ -169,15 +169,38 @@ function ListaFestas({
               <button
                 type="button"
                 onClick={() => aoEscolher(f)}
-                className="flex w-full items-start gap-3 px-5 py-3.5 text-left transition hover:bg-[#1A2E4F]/[0.04]"
+                className="group w-full overflow-hidden rounded-xl text-left ring-1 ring-[#1A2E4F]/10 transition hover:-translate-y-0.5 hover:shadow-lg hover:ring-[#EC2456]/30"
               >
-                <span className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ backgroundColor: cor }} />
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-[#1A2E4F]">{p.nome}</span>
-                  <span className="block text-xs text-[#1A2E4F]/60">
-                    {p.concelho} · {formatarDatas(p.data_inicio, p.data_fim)}
+                <div className="relative h-24 w-full overflow-hidden">
+                  {p.cartaz_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={p.cartaz_url}
+                      alt=""
+                      className="h-full w-full object-cover transition group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#F97B16] to-[#EC2456]">
+                      <Image src="/logo-mark.svg" alt="" width={40} height={40} className="opacity-80" />
+                    </div>
+                  )}
+                  <span
+                    className="absolute left-2.5 top-2.5 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide shadow-sm"
+                    style={{ color: cor }}
+                  >
+                    <span className="size-1.5 rounded-full" style={{ backgroundColor: cor }} />
+                    {ETIQUETAS[p.estado_temporal]}
                   </span>
-                </span>
+                </div>
+                <div className="p-3">
+                  <span className="block truncate text-sm font-bold text-[#1A2E4F]">{p.nome}</span>
+                  <span className="mt-0.5 block text-xs text-[#1A2E4F]/60">
+                    {p.concelho} · {p.distrito}
+                  </span>
+                  <span className="mt-1.5 inline-block rounded-md bg-[#1A2E4F]/5 px-2 py-0.5 text-[11px] font-semibold text-[#1A2E4F]">
+                    📅 {formatarDatas(p.data_inicio, p.data_fim)}
+                  </span>
+                </div>
               </button>
             </li>
           );
