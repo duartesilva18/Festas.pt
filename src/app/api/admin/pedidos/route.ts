@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const admin = await validarAdmin();
   if (!admin) return NextResponse.json({ error: "Sem permissões." }, { status: 403 });
 
-  let corpo: { id?: unknown; acao?: unknown };
+  let corpo: { id?: unknown; acao?: unknown; nota?: unknown };
   try {
     corpo = await req.json();
   } catch {
@@ -19,6 +19,7 @@ export async function POST(req: Request) {
 
   const id = typeof corpo.id === "string" ? corpo.id : "";
   const acao = corpo.acao === "aprovar" || corpo.acao === "rejeitar" ? corpo.acao : null;
+  const nota = typeof corpo.nota === "string" ? corpo.nota.trim().slice(0, 500) : "";
   if (!UUID.test(id) || !acao) {
     return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
   }
@@ -29,30 +30,49 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Moderação indisponível." }, { status: 503 });
   }
 
+  const cabecalhos = {
+    apikey: serviceKey,
+    Authorization: `Bearer ${serviceKey}`,
+    "Content-Type": "application/json",
+  };
+
   const resposta = await fetch(
-    `${url}/rest/v1/criticas?id=eq.${encodeURIComponent(id)}&estado=eq.pendente`,
+    `${url}/rest/v1/pedidos_organizador?id=eq.${encodeURIComponent(id)}&estado=eq.pendente`,
     {
       method: "PATCH",
-      headers: {
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-        "Content-Type": "application/json",
-        Prefer: "return=representation",
-      },
+      headers: { ...cabecalhos, Prefer: "return=representation" },
       body: JSON.stringify({
-        estado: acao === "aprovar" ? "aprovada" : "rejeitada",
-        moderada_em: new Date().toISOString(),
+        estado: acao === "aprovar" ? "aprovado" : "rejeitado",
+        nota_admin: nota || null,
+        moderado_em: new Date().toISOString(),
       }),
       cache: "no-store",
     },
   );
 
   if (!resposta.ok) {
-    return NextResponse.json({ error: "Não foi possível moderar a crítica." }, { status: 502 });
+    return NextResponse.json({ error: "Não foi possível moderar o pedido." }, { status: 502 });
   }
   const linhas = await resposta.json().catch(() => []);
   if (!Array.isArray(linhas) || linhas.length === 0) {
-    return NextResponse.json({ error: "A crítica já foi moderada." }, { status: 409 });
+    return NextResponse.json({ error: "O pedido já foi moderado." }, { status: 409 });
+  }
+
+  // Ao aprovar, promove o perfil a organizador — só se ainda for membro,
+  // para nunca despromover um admin.
+  if (acao === "aprovar") {
+    const userId = linhas[0]?.user_id as string | undefined;
+    if (userId && UUID.test(userId)) {
+      await fetch(
+        `${url}/rest/v1/perfis?id=eq.${encodeURIComponent(userId)}&papel=eq.membro`,
+        {
+          method: "PATCH",
+          headers: cabecalhos,
+          body: JSON.stringify({ papel: "organizador" }),
+          cache: "no-store",
+        },
+      );
+    }
   }
 
   return NextResponse.json({ ok: true });

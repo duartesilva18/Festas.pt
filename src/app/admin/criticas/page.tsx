@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
+import AdminTabs from "@/components/AdminTabs";
 import ModerarCritica from "@/components/ModerarCritica";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -61,6 +62,8 @@ export default async function PaginaModeracao() {
             {pendentes.length} pendente{pendentes.length === 1 ? "" : "s"}
           </span>
         </div>
+
+        <AdminTabs ativa="/admin/criticas" />
 
         {indisponivel && (
           <p className="mt-8 rounded-lg border border-[#c43d4b]/25 bg-[#c43d4b]/[0.04] p-4 text-sm text-[#c43d4b]">

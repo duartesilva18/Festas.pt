@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
+import PedidoOrganizador from "@/components/PedidoOrganizador";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatarDatas } from "@/lib/festa-ui";
 
@@ -60,6 +61,18 @@ export default async function PaginaPerfil() {
     festas = (data ?? []) as FestaGuardada[];
   }
 
+  // Último pedido de verificação de entidade (RLS devolve só os do próprio).
+  const { data: pedidos } = await supabase
+    .from("pedidos_organizador")
+    .select("nome_entidade,estado,nota_admin,created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const pedido = (pedidos?.[0] ?? null) as
+    | { nome_entidade: string; estado: string; nota_admin: string | null; created_at: string }
+    | null;
+  const verificado = papel === "organizador" || papel === "admin";
+
   return (
     <div className="min-h-dvh bg-white text-[#1A2E4F]">
       <Navbar />
@@ -81,6 +94,47 @@ export default async function PaginaPerfil() {
               {PAPEIS[papel] ?? "Membro"}
             </span>
           </div>
+        </section>
+
+        <section className="mt-10">
+          <h2 className="text-lg font-bold text-[#102745]">Organizador de eventos</h2>
+          {verificado ? (
+            <div className="mt-4 flex items-center gap-3 rounded-xl border border-[#20856D]/20 bg-[#20856D]/[0.05] p-4">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#20856D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M12 3 4 6v6c0 4.4 3.4 8.4 8 9 4.6-.6 8-4.6 8-9V6l-8-3z" /><path d="m9 12 2 2 4-4" /></svg>
+              <div>
+                <p className="text-sm font-bold text-[#102745]">Conta verificada como organizador</p>
+                <p className="mt-0.5 text-xs text-[#1A2E4F]/60">Em breve vais poder publicar as festas da tua entidade.</p>
+              </div>
+            </div>
+          ) : pedido?.estado === "pendente" ? (
+            <div className="mt-4 flex items-center gap-3 rounded-xl border border-[#F97B16]/25 bg-[#F97B16]/[0.05] p-4">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d65c00" strokeWidth="2" strokeLinecap="round" className="shrink-0"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
+              <div>
+                <p className="text-sm font-bold text-[#102745]">Pedido em análise</p>
+                <p className="mt-0.5 text-xs text-[#1A2E4F]/60">
+                  O pedido para <span className="font-semibold">{pedido.nome_entidade}</span> foi recebido. Damos-te resposta aqui em breve.
+                </p>
+              </div>
+            </div>
+          ) : pedido?.estado === "rejeitado" ? (
+            <div className="mt-4 rounded-xl border border-[#c43d4b]/25 bg-[#c43d4b]/[0.04] p-4">
+              <p className="text-sm font-bold text-[#102745]">O último pedido não foi aprovado</p>
+              {pedido.nota_admin ? (
+                <p className="mt-1 text-xs leading-relaxed text-[#1A2E4F]/70">Nota da equipa: “{pedido.nota_admin}”</p>
+              ) : (
+                <p className="mt-1 text-xs leading-relaxed text-[#1A2E4F]/70">Podes corrigir os dados e voltar a submeter.</p>
+              )}
+              <PedidoOrganizador textoBotao="Submeter novo pedido" />
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed border-[#1A2E4F]/15 p-5 text-center">
+              <p className="text-sm font-semibold text-[#1A2E4F]/70">Representas uma junta, câmara ou comissão de festas?</p>
+              <p className="mx-auto mt-1 max-w-md text-xs text-[#1A2E4F]/50">
+                Pede a verificação da tua entidade para, em breve, poderes publicar e gerir as festas que organizas.
+              </p>
+              <PedidoOrganizador textoBotao="Pedir verificação" />
+            </div>
+          )}
         </section>
 
         <section className="mt-10">
