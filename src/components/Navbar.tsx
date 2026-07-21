@@ -115,6 +115,13 @@ function iniciaisDe(nome: string | null, email: string | null) {
   return ((partes[0]?.[0] ?? "") + (partes.length > 1 ? partes[partes.length - 1][0] : "")).toUpperCase() || "?";
 }
 
+function primeiroUltimoNome(nome: string | null, email: string | null) {
+  const base = (nome ?? email ?? "").trim();
+  if (!base) return "A minha conta";
+  const partes = base.split(/\s+/).filter(Boolean);
+  return partes.length > 1 ? `${partes[0]} ${partes[partes.length - 1]}` : partes[0];
+}
+
 function MenuUtilizador() {
   const { utilizador, aCarregar, entrarComGoogle, terminarSessao } = useAuth();
   const [aberto, setAberto] = useState(false);
@@ -145,6 +152,15 @@ function MenuUtilizador() {
   }
 
   const mostrarFoto = utilizador.avatarUrl && !semFoto;
+  const avatar = mostrarFoto ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={utilizador.avatarUrl!} alt="" referrerPolicy="no-referrer" onError={() => setSemFoto(true)} className="size-9 shrink-0 rounded-full object-cover" />
+  ) : (
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-[#F97B16] to-[#EC2456] text-xs font-bold text-white">
+      {iniciaisDe(utilizador.nome, utilizador.email)}
+    </span>
+  );
+
   return (
     <div ref={ref} className="relative ml-1">
       <button
@@ -152,28 +168,34 @@ function MenuUtilizador() {
         onClick={() => setAberto((v) => !v)}
         aria-label="A minha conta"
         aria-expanded={aberto}
-        className="flex size-9 items-center justify-center overflow-hidden rounded-full ring-2 ring-transparent transition hover:ring-[#EC2456]/30"
+        className="flex items-center gap-2 rounded-full py-1 pl-1 pr-1 text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#1A2E4F]/[0.04] sm:pr-2.5"
       >
-        {mostrarFoto ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={utilizador.avatarUrl!} alt="" referrerPolicy="no-referrer" onError={() => setSemFoto(true)} className="size-9 object-cover" />
-        ) : (
-          <span className="flex size-9 items-center justify-center bg-gradient-to-b from-[#F97B16] to-[#EC2456] text-xs font-bold text-white">
-            {iniciaisDe(utilizador.nome, utilizador.email)}
-          </span>
-        )}
+        {avatar}
+        <span className="hidden max-w-[120px] truncate sm:block">{primeiroUltimoNome(utilizador.nome, utilizador.email)}</span>
+        <svg className={`hidden text-[#1A2E4F]/40 transition sm:block ${aberto ? "rotate-180" : ""}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
       </button>
 
       {aberto && (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 overflow-hidden rounded-xl border border-[#1A2E4F]/10 bg-white p-1 shadow-xl">
-          <div className="border-b border-[#1A2E4F]/8 px-3 py-2.5">
-            <p className="truncate text-sm font-bold text-[#102745]">{utilizador.nome ?? "A minha conta"}</p>
-            {utilizador.email && <p className="truncate text-xs text-[#1A2E4F]/55">{utilizador.email}</p>}
+        <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-56 overflow-hidden rounded-xl border border-[#1A2E4F]/10 bg-white p-1 shadow-xl">
+          <div className="flex items-center gap-2.5 border-b border-[#1A2E4F]/8 px-3 py-2.5">
+            {avatar}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-[#102745]">{primeiroUltimoNome(utilizador.nome, utilizador.email)}</p>
+              {utilizador.email && <p className="truncate text-[11px] text-[#1A2E4F]/55">{utilizador.email}</p>}
+            </div>
           </div>
+          <Link
+            href="/perfil"
+            onClick={() => setAberto(false)}
+            className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#EC2456]/[0.06] hover:text-[#EC2456]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></svg>
+            Perfil
+          </Link>
           <button
             type="button"
             onClick={() => { setAberto(false); void terminarSessao(); }}
-            className="mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#EC2456]/[0.06] hover:text-[#EC2456]"
+            className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#EC2456]/[0.06] hover:text-[#EC2456]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
             Terminar sessão
@@ -205,18 +227,6 @@ export default function Navbar({ contagem, opcoesPesquisa = [] }: { contagem?: n
                 {contagem} festas no mapa
               </span>
             )}
-            <Link
-              href="/"
-              className="hidden rounded-full px-3 py-2 text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#1A2E4F]/5 lg:block"
-            >
-              Mapa
-            </Link>
-            <span
-              className="hidden cursor-not-allowed rounded-full px-3 py-2 text-sm font-medium text-[#1A2E4F]/40 lg:block"
-              title="Disponível em breve"
-            >
-              Submeter festa
-            </span>
             <MenuUtilizador />
           </nav>
         </div>
