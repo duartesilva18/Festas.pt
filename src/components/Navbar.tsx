@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/components/AuthProvider";
 
 export type OpcaoPesquisa = { id: string; nome: string; localizacao: string; cartazUrl: string | null };
 const CHAVE_PESQUISAS_RECENTES = "achafestas:pesquisas-recentes";
@@ -108,6 +109,81 @@ function CampoPesquisa({ className = "", opcoes = [] }: { className?: string; op
   );
 }
 
+function iniciaisDe(nome: string | null, email: string | null) {
+  const base = (nome ?? email ?? "?").trim();
+  const partes = base.split(/\s+/).filter(Boolean);
+  return ((partes[0]?.[0] ?? "") + (partes.length > 1 ? partes[partes.length - 1][0] : "")).toUpperCase() || "?";
+}
+
+function MenuUtilizador() {
+  const { utilizador, aCarregar, entrarComGoogle, terminarSessao } = useAuth();
+  const [aberto, setAberto] = useState(false);
+  const [semFoto, setSemFoto] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!aberto) return;
+    const fora = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setAberto(false); };
+    document.addEventListener("mousedown", fora);
+    return () => document.removeEventListener("mousedown", fora);
+  }, [aberto]);
+
+  if (aCarregar) {
+    return <span className="ml-1 size-9 animate-pulse rounded-full bg-[#1A2E4F]/10" aria-hidden="true" />;
+  }
+
+  if (!utilizador) {
+    return (
+      <button
+        type="button"
+        onClick={entrarComGoogle}
+        className="cursor-pointer rounded-full bg-gradient-to-b from-[#F97B16] to-[#EC2456] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md sm:ml-1 sm:px-5"
+      >
+        Entrar
+      </button>
+    );
+  }
+
+  const mostrarFoto = utilizador.avatarUrl && !semFoto;
+  return (
+    <div ref={ref} className="relative ml-1">
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-label="A minha conta"
+        aria-expanded={aberto}
+        className="flex size-9 items-center justify-center overflow-hidden rounded-full ring-2 ring-transparent transition hover:ring-[#EC2456]/30"
+      >
+        {mostrarFoto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={utilizador.avatarUrl!} alt="" referrerPolicy="no-referrer" onError={() => setSemFoto(true)} className="size-9 object-cover" />
+        ) : (
+          <span className="flex size-9 items-center justify-center bg-gradient-to-b from-[#F97B16] to-[#EC2456] text-xs font-bold text-white">
+            {iniciaisDe(utilizador.nome, utilizador.email)}
+          </span>
+        )}
+      </button>
+
+      {aberto && (
+        <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 overflow-hidden rounded-xl border border-[#1A2E4F]/10 bg-white p-1 shadow-xl">
+          <div className="border-b border-[#1A2E4F]/8 px-3 py-2.5">
+            <p className="truncate text-sm font-bold text-[#102745]">{utilizador.nome ?? "A minha conta"}</p>
+            {utilizador.email && <p className="truncate text-xs text-[#1A2E4F]/55">{utilizador.email}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={() => { setAberto(false); void terminarSessao(); }}
+            className="mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#EC2456]/[0.06] hover:text-[#EC2456]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
+            Terminar sessão
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Navbar({ contagem, opcoesPesquisa = [] }: { contagem?: number; opcoesPesquisa?: OpcaoPesquisa[] }) {
   return (
     <header className="z-20 shrink-0 bg-white">
@@ -141,13 +217,7 @@ export default function Navbar({ contagem, opcoesPesquisa = [] }: { contagem?: n
             >
               Submeter festa
             </span>
-            <button
-              type="button"
-              className="cursor-not-allowed rounded-full bg-gradient-to-b from-[#F97B16] to-[#EC2456] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md sm:ml-1 sm:px-5"
-              title="Disponível em breve"
-            >
-              Entrar
-            </button>
+            <MenuUtilizador />
           </nav>
         </div>
 

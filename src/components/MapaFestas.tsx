@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type ComponentPropsWithoutRef
 import type FestaMapBase from "@/components/FestaMap";
 import type { FestaMapHandle } from "@/components/FestaMap";
 import Galeria from "@/components/Galeria";
+import { useAuth } from "@/components/AuthProvider";
 import type { FestasGeoJSON } from "@/lib/eventos";
 import {
   CORES,
@@ -238,6 +239,8 @@ function DetalheFesta({
   const [lng, lat] = festa.lngLat;
   const cor = CORES[p.estado_temporal];
   const extra = detalhe;
+  const { guardado, alternar } = useAuth();
+  const estaGuardado = guardado(p.id);
   const [aba, setAba] = useState<"visao" | "cartaz" | "criticas" | "acerca">("visao");
   const [menuDirecoes, setMenuDirecoes] = useState(false);
   const [formularioCritica, setFormularioCritica] = useState(false);
@@ -359,8 +362,8 @@ function DetalheFesta({
             </a>
           </div>}
         </div>
-        <button type="button" onClick={() => setMenuDirecoes(false)} className="group flex flex-col items-center gap-1.5 rounded-lg py-1 transition-colors duration-150 hover:bg-[#F97B16]/[0.06] hover:text-[#EC2456]" aria-label="Guardar festa">
-          <span className="flex size-9 items-center justify-center rounded-full bg-[#EC2456]/10 text-[#EC2456] transition-colors duration-150 group-hover:bg-[#EC2456]/20"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3h12v18l-6-4-6 4z" /></svg></span>Guardar
+        <button type="button" onClick={() => { setMenuDirecoes(false); alternar(p.id); }} aria-pressed={estaGuardado} className={`group flex flex-col items-center gap-1.5 rounded-lg py-1 transition-colors duration-150 hover:bg-[#F97B16]/[0.06] hover:text-[#EC2456] ${estaGuardado ? "text-[#EC2456]" : ""}`} aria-label={estaGuardado ? "Remover dos guardados" : "Guardar festa"}>
+          <span className="flex size-9 items-center justify-center rounded-full bg-[#EC2456]/10 text-[#EC2456] transition-colors duration-150 group-hover:bg-[#EC2456]/20"><svg width="17" height="17" viewBox="0 0 24 24" fill={estaGuardado ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg></span>{estaGuardado ? "Guardado" : "Guardar"}
         </button>
         <button type="button" onClick={() => selecionarAba("cartaz")} className="group flex flex-col items-center gap-1.5 rounded-lg py-1 transition-colors duration-150 hover:bg-[#EC2456]/[0.06] hover:text-[#EC2456]">
           <span className="flex size-9 items-center justify-center rounded-full bg-[#EC2456]/10 text-[#EC2456] transition-colors duration-150 group-hover:bg-[#EC2456]/20"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></svg></span>Cartaz
