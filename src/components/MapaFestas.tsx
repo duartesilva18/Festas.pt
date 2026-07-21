@@ -5,7 +5,16 @@ import { useEffect, useRef, useState } from "react";
 import FestaMap, { type FestaMapHandle } from "@/components/FestaMap";
 import Galeria from "@/components/Galeria";
 import type { FestasGeoJSON } from "@/lib/eventos";
-import { CORES, ETIQUETAS, formatarDatas, type FestaSelecionada } from "@/lib/festa-ui";
+import {
+  CORES,
+  ETIQUETAS,
+  formatarDatas,
+  distanciaKm,
+  formatarKm,
+  estimativaTempo,
+  type Coords,
+  type FestaSelecionada,
+} from "@/lib/festa-ui";
 
 type Painel =
   | { modo: "fechado" }
@@ -38,11 +47,15 @@ type DetalheExtra = {
 function DetalheFesta({
   festa,
   deLista,
+  minhaLoc,
+  pedirLocalizacao,
   aoVoltar,
   aoFechar,
 }: {
   festa: FestaSelecionada;
   deLista: boolean;
+  minhaLoc: Coords | null;
+  pedirLocalizacao: () => void;
   aoVoltar: () => void;
   aoFechar: () => void;
 }) {
@@ -141,6 +154,28 @@ function DetalheFesta({
           </a>
         </div>
 
+        {minhaLoc ? (
+          <div className="mt-3 flex items-center gap-2 rounded-md border border-[#EC2456]/20 bg-[#EC2456]/[0.04] px-3 py-2 text-[13px] text-[#1A2E4F]">
+            <span className="text-[#EC2456]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 16H9m10 0a3 3 0 1 1-6 0m6 0V9l-2-4H7L5 9v7m0 0a3 3 0 1 0 6 0" /></svg>
+            </span>
+            <span>
+              Estás a <strong>{estimativaTempo(distanciaKm(minhaLoc, { lat, lng }))}</strong> de carro
+              {" · "}{formatarKm(distanciaKm(minhaLoc, { lat, lng }))}
+              <span className="ml-1 text-[#1A2E4F]/45">(aprox.)</span>
+            </span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={pedirLocalizacao}
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-[#1A2E4F]/25 py-2 text-[13px] font-medium text-[#1A2E4F]/70 transition hover:border-[#EC2456]/40 hover:text-[#EC2456]"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg>
+            Ver a que distância estás
+          </button>
+        )}
+
         {extra?.descricao && (
           <section className="mt-5">
             <h3 className="text-xs font-bold uppercase tracking-wide text-[#1A2E4F]/45">Sobre</h3>
@@ -192,10 +227,12 @@ function DetalheFesta({
 
 function ListaFestas({
   festas,
+  minhaLoc,
   aoEscolher,
   aoFechar,
 }: {
   festas: FestaSelecionada[];
+  minhaLoc: Coords | null;
   aoEscolher: (f: FestaSelecionada) => void;
   aoFechar: () => void;
 }) {
@@ -245,15 +282,30 @@ function ListaFestas({
                     <span className="size-1.5 rounded-full" style={{ backgroundColor: cor }} />
                     {ETIQUETAS[p.estado_temporal]}
                   </span>
+                  {minhaLoc && (
+                    <span className="absolute right-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-[#EC2456] shadow-sm">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 16H9m10 0a3 3 0 1 1-6 0m6 0V9l-2-4H7L5 9v7m0 0a3 3 0 1 0 6 0" /></svg>
+                      {estimativaTempo(distanciaKm(minhaLoc, { lat: f.lngLat[1], lng: f.lngLat[0] }))}
+                    </span>
+                  )}
                 </div>
                 <div className="p-3">
                   <span className="block truncate text-sm font-bold text-[#1A2E4F]">{p.nome}</span>
-                  <span className="mt-0.5 block text-xs text-[#1A2E4F]/60">
-                    {p.concelho} · {p.distrito}
+                  <span className="mt-0.5 flex items-center gap-1 truncate text-xs text-[#1A2E4F]/60">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EC2456" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg>
+                    {p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho} · {p.distrito}
                   </span>
-                  <span className="mt-1.5 inline-block rounded-md bg-[#1A2E4F]/5 px-2 py-0.5 text-[11px] font-semibold text-[#1A2E4F]">
-                    📅 {formatarDatas(p.data_inicio, p.data_fim)}
-                  </span>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1 rounded bg-[#1A2E4F]/5 px-2 py-0.5 text-[11px] font-semibold text-[#1A2E4F]">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v4M16 2v4M3 10h18" /><rect x="5" y="4" width="14" height="16" rx="1" /></svg>
+                      {formatarDatas(p.data_inicio, p.data_fim)}
+                    </span>
+                    {p.categorias?.slice(0, 2).map((c) => (
+                      <span key={c} className="rounded bg-[#1A2E4F]/5 px-2 py-0.5 text-[11px] font-medium capitalize text-[#1A2E4F]/65">
+                        {c}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </button>
             </li>
@@ -268,7 +320,19 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
   const [painel, setPainel] = useState<Painel>({ modo: "fechado" });
   const [lista, setLista] = useState<FestaSelecionada[]>([]);
   const [aFechar, setAFechar] = useState(false);
+  const [minhaLoc, setMinhaLoc] = useState<Coords | null>(null);
+  const pediuLoc = useRef(false);
   const mapaRef = useRef<FestaMapHandle>(null);
+
+  function pedirLocalizacao() {
+    if (pediuLoc.current || !("geolocation" in navigator)) return;
+    pediuLoc.current = true;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setMinhaLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
+    );
+  }
 
   function fechar() {
     setAFechar(true);
@@ -281,6 +345,7 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
 
   function abrir(novo: Painel) {
     setAFechar(false);
+    pedirLocalizacao();
     setPainel(novo);
   }
 
@@ -309,12 +374,15 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
               <DetalheFesta
                 festa={painel.festa}
                 deLista={painel.deLista}
+                minhaLoc={minhaLoc}
+                pedirLocalizacao={pedirLocalizacao}
                 aoVoltar={() => abrir({ modo: "lista", festas: lista })}
                 aoFechar={fechar}
               />
             ) : (
               <ListaFestas
                 festas={painel.festas}
+                minhaLoc={minhaLoc}
                 aoEscolher={(festa) => abrir({ modo: "detalhe", festa, deLista: true })}
                 aoFechar={fechar}
               />

@@ -19,6 +19,35 @@ export type FestaSelecionada = {
   lngLat: [number, number];
 };
 
+export type Coords = { lat: number; lng: number };
+
+// Distância em linha reta (Haversine), em km.
+export function distanciaKm(a: Coords, b: Coords): number {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.lat * Math.PI) / 180) *
+      Math.cos((b.lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+export function formatarKm(km: number): string {
+  return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`;
+}
+
+// Estimativa grosseira de trajeto de carro: fator de estrada 1.2× e ~95 km/h
+// (calibrado para autoestrada; ex.: Lisboa→Viana ≈ 4h, real ≈ 3h50).
+export function estimativaTempo(km: number): string {
+  const minutos = Math.round(((km * 1.2) / 95) * 60);
+  if (minutos < 60) return `~${minutos} min`;
+  const h = Math.floor(minutos / 60);
+  const m = minutos % 60;
+  return m ? `~${h}h${String(m).padStart(2, "0")}` : `~${h}h`;
+}
+
 export function formatarDatas(inicio: string, fim: string | null): string {
   const fmt = new Intl.DateTimeFormat("pt-PT", { day: "numeric", month: "long" });
   const dInicio = new Date(inicio + "T12:00:00");
