@@ -1,5 +1,4 @@
 import type { EstadoTemporal } from "@/lib/eventos";
-import { MOCK_CARTAZES, MOCK_DETALHE } from "@/lib/mock";
 
 export type ProgramaDia = { dia: string; eventos: { hora?: string; titulo: string }[] };
 
@@ -36,18 +35,6 @@ function parseEWKBPoint(hex: string | null): [number, number] | null {
   const temSrid = (type & 0x20000000) !== 0;
   const offset = 5 + (temSrid ? 4 : 0);
   return [view.getFloat64(offset, le), view.getFloat64(offset + 8, le)];
-}
-
-// Reparação defensiva de acentos com mojibake (dupla codificação UTF-8) no seed.
-// TODO: remover quando os dados forem recarregados corretamente no Supabase.
-export function repararTexto(s: string | null): string | null {
-  if (!s || !/[ÃÂ]/.test(s)) return s;
-  try {
-    const bytes = Uint8Array.from([...s].map((c) => c.charCodeAt(0) & 0xff));
-    return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-  } catch {
-    return s;
-  }
 }
 
 function estadoTemporal(inicio: string, fim: string | null): EstadoTemporal {
@@ -96,7 +83,7 @@ export async function fetchFestaDetalhe(
   const select =
     "nome,slug,freguesia,descricao,categorias,location," +
     "concelhos!inner(nome,slug,distrito)," +
-    "edicoes(ano,data_inicio,data_fim,estado,programa,cartaz_url,fonte_url)";
+    "edicoes(ano,data_inicio,data_fim,estado,programa,cartaz_url,fotos,fonte_url)";
   const query =
     `${url}/rest/v1/festas?slug=eq.${encodeURIComponent(slug)}` +
     `&concelhos.slug=eq.${encodeURIComponent(concelho)}` +
@@ -117,20 +104,15 @@ export async function fetchFestaDetalhe(
 
   const ponto = parseEWKBPoint(f.location);
 
-  // MOCK TEMPORÁRIO: cartaz para todas as festas de exemplo, fotos+programa
-  // completos só na Feiras Novas. Remover quando houver dados reais.
-  const mockCartaz = MOCK_CARTAZES[f.slug];
-  const mockDetalhe = MOCK_DETALHE[f.slug];
-
   return {
-    nome: repararTexto(f.nome)!,
+    nome: f.nome,
     slug: f.slug,
-    freguesia: repararTexto(f.freguesia),
-    descricao: repararTexto(f.descricao),
+    freguesia: f.freguesia,
+    descricao: f.descricao,
     categorias: Array.isArray(f.categorias) ? f.categorias : [],
-    concelho: repararTexto(f.concelhos.nome)!,
+    concelho: f.concelhos.nome,
     concelhoSlug: f.concelhos.slug,
-    distrito: repararTexto(f.concelhos.distrito)!,
+    distrito: f.concelhos.distrito,
     lng: ponto?.[0] ?? null,
     lat: ponto?.[1] ?? null,
     ano: edicao.ano,
@@ -138,10 +120,9 @@ export async function fetchFestaDetalhe(
     dataFim: edicao.data_fim,
     estado: edicao.estado,
     estadoTemporal: estadoTemporal(edicao.data_inicio, edicao.data_fim),
-    programa: edicao.programa ?? mockDetalhe?.programa ?? null,
-    cartazUrl: edicao.cartaz_url ?? mockCartaz ?? null,
-    // TODO: coluna `fotos text[]` a adicionar em edicoes quando o Supabase reconectar.
-    fotos: Array.isArray(edicao.fotos) ? edicao.fotos : (mockDetalhe?.fotos ?? []),
+    programa: edicao.programa,
+    cartazUrl: edicao.cartaz_url,
+    fotos: Array.isArray(edicao.fotos) ? edicao.fotos : [],
     fonteUrl: edicao.fonte_url,
   };
 }

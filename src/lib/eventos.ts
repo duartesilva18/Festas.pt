@@ -1,5 +1,3 @@
-import { MOCK_CARTAZES } from "@/lib/mock";
-
 export type EstadoTemporal = "a_decorrer" | "em_breve" | "futuro";
 
 export type FestaMapa = {
@@ -18,6 +16,7 @@ export type FestaMapa = {
   data_fim: string | null;
   estado: string;
   cartaz_url: string | null;
+  fotos: string[] | null;
 };
 
 export type FestaFeature = GeoJSON.Feature<
@@ -63,8 +62,6 @@ export async function fetchFestasGeoJSON(): Promise<FestasGeoJSON> {
         geometry: { type: "Point", coordinates: [lng, lat] },
         properties: {
           ...props,
-          // MOCK: cartaz de pré-visualização quando não há real. Remover depois.
-          cartaz_url: props.cartaz_url ?? MOCK_CARTAZES[props.slug] ?? null,
           estado_temporal: estadoTemporal(r.data_inicio, r.data_fim, hoje),
         },
       };
