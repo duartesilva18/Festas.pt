@@ -36,10 +36,13 @@ export default async function Home() {
         </aside>
       </main>
 
-      <footer className="z-20 flex h-9 shrink-0 items-center justify-between border-t border-[#1A2E4F]/10 bg-white px-4 text-[11px] text-[#1A2E4F]/60 sm:px-6">
-        <p>© {new Date().getFullYear()} Achafestas · Todos os direitos reservados</p>
-        <nav className="flex items-center gap-4">
-          <span className="hidden sm:inline">Dados verificados com as organizações</span>
+      <footer className="z-20 flex h-9 shrink-0 items-center justify-between gap-3 border-t border-[#1A2E4F]/10 bg-white px-4 text-[11px] text-[#1A2E4F]/60 sm:px-6">
+        <p className="truncate">
+          © {new Date().getFullYear()} Achafestas
+          <span className="hidden sm:inline"> · Todos os direitos reservados</span>
+        </p>
+        <nav className="flex shrink-0 items-center gap-4">
+          <span className="hidden lg:inline">Dados verificados com as organizações</span>
           <Link href="/termos" className="hover:text-[#1A2E4F]">Termos</Link>
           <Link href="/privacidade" className="hover:text-[#1A2E4F]">Privacidade</Link>
         </nav>
