@@ -15,7 +15,12 @@ export async function GET(req: Request) {
   if (!festa) return NextResponse.json({ error: "Não encontrada" }, { status: 404 });
 
   return NextResponse.json(
-    { descricao: festa.descricao, cartazUrl: festa.cartazUrl, fotos: festa.fotos },
+    {
+      descricao: festa.descricao,
+      cartazUrl: festa.cartazUrl,
+      fotos: festa.fotos,
+      programa: festa.programa,
+    },
     { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=7200" } },
   );
 }

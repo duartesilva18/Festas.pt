@@ -26,7 +26,13 @@ function BotaoFechar({ onClick }: { onClick: () => void }) {
   );
 }
 
-type DetalheExtra = { descricao: string | null; cartazUrl: string | null; fotos: string[] };
+type ProgramaDia = { dia: string; eventos: { hora?: string; titulo: string }[] };
+type DetalheExtra = {
+  descricao: string | null;
+  cartazUrl: string | null;
+  fotos: string[];
+  programa: ProgramaDia[] | null;
+};
 
 function DetalheFesta({
   festa,
@@ -121,34 +127,61 @@ function DetalheFesta({
           </div>
         )}
 
-        {extra?.descricao && (
-          <p className="mt-3 text-[13px] leading-relaxed text-[#1A2E4F]/70">
-            {extra.descricao.length > 180 ? `${extra.descricao.slice(0, 180)}…` : extra.descricao}
-          </p>
-        )}
-
-        {fotos.length > 0 && (
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {fotos.slice(0, 6).map((foto, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={i} src={foto} alt={`${p.nome} — foto ${i + 1}`} className="h-20 w-24 shrink-0 rounded-md object-cover" />
-            ))}
-          </div>
-        )}
-
         <div className="mt-4 grid grid-cols-2 gap-2">
           <a href={`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`} target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center rounded border border-[#1A2E4F]/15 py-2 text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#1A2E4F]/5">
+            className="flex items-center justify-center gap-1.5 rounded border border-[#1A2E4F]/15 py-2 text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#1A2E4F]/5">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z" /></svg>
             Waze
           </a>
           <a href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`} target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center rounded border border-[#1A2E4F]/15 py-2 text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#1A2E4F]/5">
-            Google Maps
+            className="flex items-center justify-center gap-1.5 rounded border border-[#1A2E4F]/15 py-2 text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#1A2E4F]/5">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg>
+            Direções
           </a>
         </div>
 
+        {extra?.descricao && (
+          <section className="mt-5">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-[#1A2E4F]/45">Sobre</h3>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-[#1A2E4F]/75">{extra.descricao}</p>
+          </section>
+        )}
+
+        {fotos.length > 0 && (
+          <section className="mt-5">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-[#1A2E4F]/45">Fotos</h3>
+            <div className="mt-2 grid grid-cols-2 gap-1.5">
+              {fotos.slice(0, 4).map((foto, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={i} src={foto} alt={`${p.nome} — foto ${i + 1}`} className="aspect-[4/3] w-full rounded-md object-cover" />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {extra?.programa && extra.programa.length > 0 && (
+          <section className="mt-5">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-[#1A2E4F]/45">Programa</h3>
+            <div className="mt-2 space-y-3">
+              {extra.programa.map((dia) => (
+                <div key={dia.dia}>
+                  <p className="text-[13px] font-bold text-[#EC2456]">{dia.dia}</p>
+                  <ul className="mt-1 space-y-1">
+                    {dia.eventos.map((ev, i) => (
+                      <li key={i} className="flex gap-2.5 text-[13px] text-[#1A2E4F]/75">
+                        {ev.hora && <span className="w-11 shrink-0 font-semibold tabular-nums text-[#1A2E4F]">{ev.hora}</span>}
+                        <span>{ev.titulo}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <a href={`/festas/${p.concelho_slug}/${p.slug}`}
-          className="mt-2 flex items-center justify-center gap-1.5 rounded bg-[#EC2456] py-2.5 text-sm font-bold text-white transition hover:bg-[#d11a47]">
+          className="mt-6 flex items-center justify-center gap-1.5 rounded bg-[#EC2456] py-2.5 text-sm font-bold text-white transition hover:bg-[#d11a47]">
           Ver página da festa
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 5l7 7-7 7" />
