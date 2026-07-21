@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BotaoVoltar from "@/components/BotaoVoltar";
+import Galeria from "@/components/Galeria";
+import ImagemAmpliavel from "@/components/ImagemAmpliavel";
 import Navbar from "@/components/Navbar";
 import { fetchFestaDetalhe, type FestaDetalhe } from "@/lib/festa-detalhe";
 import { CORES, ETIQUETAS } from "@/lib/festa-ui";
@@ -145,8 +147,7 @@ export default async function PaginaFesta({ params }: Params) {
           <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
             <div className="overflow-hidden rounded-md border border-[#1A2E4F]/12">
               {festa.cartazUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={festa.cartazUrl} alt={`Cartaz de ${festa.nome}`} className="w-full" />
+                <ImagemAmpliavel src={festa.cartazUrl} alt={`Cartaz de ${festa.nome}`} className="w-full" />
               ) : (
                 <div className="flex aspect-[3/4] flex-col items-center justify-center gap-3 bg-[#F5F6F8] text-[#1A2E4F]/35">
                   <Icone d="M4 5h16v14H4z M4 15l4-4 3 3 4-4 5 5" />
@@ -210,11 +211,8 @@ export default async function PaginaFesta({ params }: Params) {
             <section className="mt-10">
               <h2 className="text-lg font-bold">Galeria</h2>
               {festa.fotos.length > 0 ? (
-                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {festa.fotos.map((foto, i) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img key={i} src={foto} alt={`${festa.nome} — foto ${i + 1}`} className="aspect-square w-full rounded-md object-cover" />
-                  ))}
+                <div className="mt-3">
+                  <Galeria fotos={festa.fotos} variante="pagina" />
                 </div>
               ) : (
                 <div className="mt-3 flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-[#1A2E4F]/15 py-12 text-center text-[#1A2E4F]/40">

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import FestaMap, { type FestaMapHandle } from "@/components/FestaMap";
+import Galeria from "@/components/Galeria";
 import type { FestasGeoJSON } from "@/lib/eventos";
 import { CORES, ETIQUETAS, formatarDatas, type FestaSelecionada } from "@/lib/festa-ui";
 
@@ -150,11 +151,8 @@ function DetalheFesta({
         {fotos.length > 0 && (
           <section className="mt-5">
             <h3 className="text-xs font-bold uppercase tracking-wide text-[#1A2E4F]/45">Fotos</h3>
-            <div className="mt-2 grid grid-cols-2 gap-1.5">
-              {fotos.slice(0, 4).map((foto, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={i} src={foto} alt={`${p.nome} — foto ${i + 1}`} className="aspect-[4/3] w-full rounded-md object-cover" />
-              ))}
+            <div className="mt-2">
+              <Galeria fotos={fotos} variante="painel" />
             </div>
           </section>
         )}
