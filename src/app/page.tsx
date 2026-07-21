@@ -21,8 +21,8 @@ export default async function Home() {
       <main className="relative z-0 min-h-0 flex-1">
         <MapaFestas dados={dados} />
 
-        <aside className="pointer-events-none absolute bottom-4 right-14 z-10">
-          <ul className="pointer-events-auto space-y-1.5 rounded-xl bg-white/95 px-4 py-3 shadow-md ring-1 ring-[#1A2E4F]/10 backdrop-blur">
+        <aside className="pointer-events-none absolute bottom-4 right-14 z-10 hidden sm:block">
+          <ul className="pointer-events-auto space-y-1.5 rounded-lg bg-white/95 px-4 py-3 shadow-md ring-1 ring-[#1A2E4F]/10 backdrop-blur">
             {LEGENDA.map((item) => (
               <li key={item.texto} className="flex items-center gap-2.5 text-xs font-medium text-[#1A2E4F]">
                 <span

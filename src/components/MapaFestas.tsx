@@ -270,8 +270,9 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
 
       {painel.modo !== "fechado" && (
         <div
-          className={`painel-entrada absolute bottom-4 left-4 top-4 z-10 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-lg bg-white shadow-2xl ring-1 ring-[#1A2E4F]/10 ${aFechar ? "painel-saida" : ""}`}
+          className={`painel-entrada absolute z-10 overflow-hidden bg-white shadow-2xl ring-1 ring-[#1A2E4F]/10 inset-x-0 bottom-0 h-[68vh] rounded-t-xl sm:inset-x-auto sm:bottom-4 sm:left-4 sm:top-4 sm:h-auto sm:w-[360px] sm:rounded-lg ${aFechar ? "painel-saida" : ""}`}
         >
+          <div className="absolute left-1/2 top-2 z-20 h-1 w-9 -translate-x-1/2 rounded-full bg-[#1A2E4F]/20 sm:hidden" />
           <div key={chaveConteudo} className="conteudo-entrada h-full">
             {painel.modo === "detalhe" ? (
               <DetalheFesta
