@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { EstadoTemporal } from "@/lib/eventos";
 
 export type ProgramaDia = { dia: string; eventos: { hora?: string; titulo: string }[] };
@@ -87,7 +88,7 @@ function escolherEdicao(edicoes: LinhaEdicao[]): LinhaEdicao | null {
   return passadas[0] ?? null;
 }
 
-export async function fetchFestaDetalhe(
+export const fetchFestaDetalhe = cache(async function fetchFestaDetalhe(
   concelho: string,
   slug: string,
 ): Promise<FestaDetalhe | null> {
@@ -146,4 +147,4 @@ export async function fetchFestaDetalhe(
       })
       .filter((local): local is SubLocalizacao => local !== null),
   };
-}
+});

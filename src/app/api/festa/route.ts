@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { fetchFestaDetalhe } from "@/lib/festa-detalhe";
 
 export const dynamic = "force-dynamic";
+const IDENTIFICADOR = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const concelho = searchParams.get("concelho");
   const slug = searchParams.get("slug");
-  if (!concelho || !slug) {
+  if (!concelho || !slug || concelho.length > 80 || slug.length > 120 || !IDENTIFICADOR.test(concelho) || !IDENTIFICADOR.test(slug)) {
     return NextResponse.json({ error: "Parâmetros em falta" }, { status: 400 });
   }
 

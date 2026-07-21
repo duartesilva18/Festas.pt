@@ -16,6 +16,13 @@ const PORTUGAL_BOUNDS: [[number, number], [number, number]] = [
 // mas nao e possivel navegar para la.
 const CENTRO_LIMITES = { lngMin: -9.4, lngMax: -6.7, latMin: 37.0, latMax: 42.0 };
 
+function paddingPainel(): maplibregl.PaddingOptions {
+  if (window.matchMedia("(max-width: 639px)").matches) {
+    return { bottom: Math.min(360, Math.round(window.innerHeight * 0.42)), left: 16, right: 16, top: 16 };
+  }
+  return { left: 450, top: 24, right: 24, bottom: 24 };
+}
+
 function vigiarCentro(map: maplibregl.Map) {
   let aRepor = false;
   map.on("moveend", () => {
@@ -155,21 +162,21 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
       const map = mapRef.current;
       if (!map) return;
       map.stop();
-      map.easeTo({ center: lngLat, zoom: Math.max(map.getZoom(), 15), padding: { left: 450 }, duration: 700, essential: true });
+      map.easeTo({ center: lngLat, zoom: Math.max(map.getZoom(), 15), padding: paddingPainel(), duration: 700, essential: true });
     },
     afastarFesta(lngLat) {
       const map = mapRef.current;
       if (!map) return;
       marcadoresSublocalizacaoRef.current.forEach((marcador) => marcador.remove());
       marcadoresSublocalizacaoRef.current = [];
-      map.easeTo({ center: lngLat, zoom: 12, padding: { left: 450 }, duration: 650, essential: true });
+      map.easeTo({ center: lngLat, zoom: 12, padding: paddingPainel(), duration: 650, essential: true });
     },
     focarSublocalizacao(local) {
       const map = mapRef.current;
       if (!map) return;
       const marcador = marcadoresSublocalizacaoRef.current.find((item) => item.getLngLat().lng === local.lng && item.getLngLat().lat === local.lat);
       marcador?.togglePopup();
-      map.easeTo({ center: [local.lng, local.lat], zoom: Math.max(map.getZoom(), 16), padding: { left: 440 }, duration: 600 });
+      map.easeTo({ center: [local.lng, local.lat], zoom: Math.max(map.getZoom(), 16), padding: paddingPainel(), duration: 600 });
     },
     mostrarSublocalizacoes(locais) {
       const map = mapRef.current;
@@ -181,7 +188,7 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
           map.easeTo({
             center: [local.lng, local.lat],
             zoom: Math.max(map.getZoom(), 17),
-            padding: { left: 440 },
+            padding: paddingPainel(),
             duration: 550,
             essential: true,
           });
@@ -334,7 +341,7 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
         map.easeTo({
           center: sel.lngLat,
           zoom: Math.max(map.getZoom(), 15),
-          padding: { left: 450 },
+          padding: paddingPainel(),
           duration: 700,
           essential: true,
         });

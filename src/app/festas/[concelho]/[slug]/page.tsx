@@ -83,6 +83,15 @@ function jsonLd(festa: FestaDetalhe) {
   };
 }
 
+function serializarJsonLd(valor: unknown) {
+  return JSON.stringify(valor)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
 function Icone({ d }: { d: string }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -103,7 +112,7 @@ export default async function PaginaFesta({ params }: Params) {
 
   return (
     <div className="min-h-dvh bg-white text-[#1A2E4F]">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(festa)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializarJsonLd(jsonLd(festa)) }} />
 
       <Navbar />
 

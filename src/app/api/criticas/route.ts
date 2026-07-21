@@ -31,6 +31,27 @@ function respostaGenerica() {
   return NextResponse.json({ error: "Não foi possível enviar a crítica. Tenta novamente." }, { status: 400 });
 }
 
+export async function GET(req: Request) {
+  const festaId = new URL(req.url).searchParams.get("festa");
+  if (!festaId || !UUID.test(festaId)) return NextResponse.json({ error: "Festa inválida." }, { status: 400 });
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return NextResponse.json({ error: "Críticas indisponíveis." }, { status: 503 });
+
+  try {
+    const resposta = await fetch(
+      `${url}/rest/v1/criticas?festa_id=eq.${encodeURIComponent(festaId)}&estado=eq.aprovada&select=id,autor_nome,nota,texto,created_at&order=created_at.desc&limit=50`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` }, next: { revalidate: 60 } },
+    );
+    if (!resposta.ok) throw new Error("SUPABASE_REVIEWS");
+    const criticas = await resposta.json();
+    return NextResponse.json(Array.isArray(criticas) ? criticas : [], { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } });
+  } catch {
+    return NextResponse.json({ error: "Críticas indisponíveis." }, { status: 503 });
+  }
+}
+
 export async function POST(req: Request) {
   const tamanho = Number(req.headers.get("content-length") ?? 0);
   if (!Number.isFinite(tamanho) || tamanho > 4096 || !origemValida(req)) return respostaGenerica();

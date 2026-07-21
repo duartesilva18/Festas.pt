@@ -14,6 +14,14 @@ function fimExclusivo(fim: string): string {
   return d.toISOString().slice(0, 10).replace(/-/g, "");
 }
 
+function escaparTextoIcs(valor: string): string {
+  return valor
+    .replace(/\\/g, "\\\\")
+    .replace(/\r\n|\r|\n/g, "\\n")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,");
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ concelho: string; slug: string }> },
@@ -27,7 +35,7 @@ export async function GET(
   const local = [festa.freguesia, festa.concelho, festa.distrito, "Portugal"]
     .filter(Boolean)
     .join(", ");
-  const descricao = (festa.descricao ?? "").replace(/\n/g, "\\n");
+  const descricao = escaparTextoIcs(festa.descricao ?? "");
 
   const ics = [
     "BEGIN:VCALENDAR",
@@ -38,8 +46,8 @@ export async function GET(
     `DTSTAMP:${dtStart}T000000Z`,
     `DTSTART;VALUE=DATE:${dtStart}`,
     `DTEND;VALUE=DATE:${dtEnd}`,
-    `SUMMARY:${festa.nome}`,
-    `LOCATION:${local}`,
+    `SUMMARY:${escaparTextoIcs(festa.nome)}`,
+    `LOCATION:${escaparTextoIcs(local)}`,
     `DESCRIPTION:${descricao}`,
     `URL:https://achafestas.com/festas/${festa.concelhoSlug}/${festa.slug}`,
     "END:VEVENT",

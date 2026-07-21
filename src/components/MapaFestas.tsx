@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import FestaMap, { type FestaMapHandle } from "@/components/FestaMap";
 import Galeria from "@/components/Galeria";
 import type { FestasGeoJSON } from "@/lib/eventos";
@@ -18,7 +18,7 @@ import {
 
 type Painel =
   | { modo: "fechado" }
-  | { modo: "detalhe"; festa: FestaSelecionada; deLista: boolean }
+  | { modo: "detalhe"; festa: FestaSelecionada; deLista: boolean; detalhe: DetalheExtra | null }
   | { modo: "lista"; festas: FestaSelecionada[]; titulo?: string };
 
 function BotaoFechar({ onClick }: { onClick: () => void }) {
@@ -107,11 +107,18 @@ function IconeSublocalizacao({ tipo }: { tipo: string }) {
   return <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#64748B]/10 text-[#64748B]"><svg className={classe} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg></span>;
 }
 
-const CRITICAS_MOCK = [
-  { nome: "Marta Rodrigues", iniciais: "MR", quando: "há 2 semanas", nota: 5, texto: "Uma festa muito bem organizada, com ambiente incrível e atividades para todas as idades. O cartaz estava excelente e voltaremos no próximo ano.", util: 12, cor: "#EC2456" },
-  { nome: "Tiago Almeida", iniciais: "TA", quando: "há 1 mês", nota: 3, texto: "Boa música e animação, mas a sinalização da zona de estacionamento podia ser melhor.", util: 7, cor: "#F97B16" },
-  { nome: "Inês Matos", iniciais: "IM", quando: "há 2 meses", nota: 5, texto: "Fomos em família e adorámos. A programação é variada e o recinto está muito bem cuidado.", util: 4, cor: "#1A2E4F" },
-];
+type CriticaPublica = { id: string; autor_nome: string | null; nota: number; texto: string; created_at: string };
+const CORES_CRITICA = ["#EC2456", "#F97B16", "#1A2E4F", "#20856D"];
+
+function quandoCritica(data: string) {
+  const diferenca = Math.max(0, Date.now() - new Date(data).getTime());
+  const dias = Math.floor(diferenca / 86_400_000);
+  if (dias === 0) return "hoje";
+  if (dias === 1) return "há 1 dia";
+  if (dias < 30) return `há ${dias} dias`;
+  const meses = Math.floor(dias / 30);
+  return `há ${meses} mês${meses === 1 ? "" : "es"}`;
+}
 
 function FormularioCritica({ festaId, aoFechar }: { festaId: string; aoFechar: () => void }) {
   const [nome, setNome] = useState("");
@@ -173,6 +180,7 @@ function FormularioCritica({ festaId, aoFechar }: { festaId: string; aoFechar: (
 
 function DetalheFesta({
   festa,
+  detalhe,
   deLista,
   minhaLoc,
   pedirLocalizacao,
@@ -182,6 +190,7 @@ function DetalheFesta({
   aoMostrarSublocalizacoes,
 }: {
   festa: FestaSelecionada;
+  detalhe: DetalheExtra | null;
   deLista: boolean;
   minhaLoc: Coords | null;
   pedirLocalizacao: () => void;
@@ -193,28 +202,35 @@ function DetalheFesta({
   const p = festa.props;
   const [lng, lat] = festa.lngLat;
   const cor = CORES[p.estado_temporal];
-  const [extra, setExtra] = useState<DetalheExtra | null>(null);
+  const extra = detalhe;
   const [aba, setAba] = useState<"visao" | "cartaz" | "criticas" | "acerca">("visao");
   const [menuDirecoes, setMenuDirecoes] = useState(false);
   const [formularioCritica, setFormularioCritica] = useState(false);
+  const [criticas, setCriticas] = useState<CriticaPublica[]>([]);
+  const [aCarregarCriticas, setACarregarCriticas] = useState(true);
   const conteudoRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    aoMostrarSublocalizacoes(extra?.subLocalizacoes ?? []);
+    return () => aoMostrarSublocalizacoes([]);
+  }, [extra, aoMostrarSublocalizacoes]);
+
+  useEffect(() => {
     let ativo = true;
-    aoMostrarSublocalizacoes([]);
-    fetch(`/api/festa?concelho=${p.concelho_slug}&slug=${p.slug}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((resposta) => {
-        const detalhe = normalizarDetalhe(resposta);
-        if (!ativo || !detalhe) return;
-        setExtra(detalhe);
-        aoMostrarSublocalizacoes(detalhe.subLocalizacoes ?? []);
+    fetch(`/api/criticas?festa=${encodeURIComponent(p.id)}`)
+      .then((resposta) => resposta.ok ? resposta.json() : [])
+      .then((dados) => {
+        if (!ativo) return;
+        setCriticas(Array.isArray(dados) ? dados.filter((critica): critica is CriticaPublica => (
+          critica && typeof critica.id === "string" && typeof critica.nota === "number" && typeof critica.texto === "string"
+        )) : []);
       })
-      .catch(() => {});
-    return () => {
-      ativo = false;
-    };
-  }, [p.concelho_slug, p.slug, aoMostrarSublocalizacoes]);
+      .catch(() => { if (ativo) setCriticas([]); })
+      .finally(() => { if (ativo) setACarregarCriticas(false); });
+    return () => { ativo = false; };
+  }, [p.id]);
+
+  const mediaCriticas = criticas.length ? criticas.reduce((total, critica) => total + critica.nota, 0) / criticas.length : 0;
 
   const cartaz = typeof extra?.cartazUrl === "string" ? extra.cartazUrl : p.cartaz_url;
   const fotos = Array.isArray(extra?.fotos) ? extra.fotos.filter(Boolean) : [];
@@ -383,13 +399,15 @@ function DetalheFesta({
 
         <section className="mt-5 border-t border-[#1A2E4F]/10 pt-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2"><h3 className="text-sm font-bold text-[#102745]">Opiniões recentes</h3><span className="text-xs font-semibold text-[#F97B16]">4,7 ★</span></div>
+            <div className="flex items-center gap-2"><h3 className="text-sm font-bold text-[#102745]">Opiniões recentes</h3>{criticas.length > 0 && <span className="text-xs font-semibold text-[#F97B16]">{mediaCriticas.toFixed(1).replace(".", ",")} ★</span>}</div>
             <button type="button" onClick={() => selecionarAba("criticas")} className="text-xs font-semibold text-[#EC2456] transition hover:text-[#d11a47]">Ver todas</button>
           </div>
           <div className="mt-2.5 space-y-2.5">
-            {CRITICAS_MOCK.slice(0, 2).map((critica) => <button key={critica.nome} type="button" onClick={() => selecionarAba("criticas")} className="block w-full text-left">
+            {aCarregarCriticas && <p className="text-xs text-[#1A2E4F]/45">A carregar opiniões…</p>}
+            {!aCarregarCriticas && criticas.length === 0 && <p className="text-xs text-[#1A2E4F]/55">Ainda não há opiniões aprovadas.</p>}
+            {criticas.slice(0, 2).map((critica) => <button key={critica.id} type="button" onClick={() => selecionarAba("criticas")} className="block w-full text-left">
               <p className="line-clamp-1 text-[13px] leading-relaxed text-[#1A2E4F]/75">“{critica.texto}”</p>
-              <p className="mt-0.5 text-[11px] text-[#1A2E4F]/55">{critica.nome} · <span className="text-[#F97B16]">{"★".repeat(critica.nota)}</span></p>
+              <p className="mt-0.5 text-[11px] text-[#1A2E4F]/55">{critica.autor_nome || "Participante"} · <span className="text-[#F97B16]">{"★".repeat(critica.nota)}</span></p>
             </button>)}
           </div>
         </section>
@@ -455,22 +473,20 @@ function DetalheFesta({
 
             <div className="mt-5 grid grid-cols-[1fr_auto] items-center gap-5 border-y border-[#1A2E4F]/10 py-4">
               <div className="space-y-1.5">
-                {[5, 4, 3, 2, 1].map((estrela, indice) => (
-                  <div key={estrela} className="flex items-center gap-2 text-[11px] text-[#1A2E4F]/65"><span className="w-2">{estrela}</span><div className="h-2 flex-1 overflow-hidden rounded-full bg-[#1A2E4F]/[0.07]"><div className="h-full rounded-full bg-[#F97B16]" style={{ width: `${[76, 17, 5, 1, 1][indice]}%` }} /></div></div>
+                {[5, 4, 3, 2, 1].map((estrela) => (
+                  <div key={estrela} className="flex items-center gap-2 text-[11px] text-[#1A2E4F]/65"><span className="w-2">{estrela}</span><div className="h-2 flex-1 overflow-hidden rounded-full bg-[#1A2E4F]/[0.07]"><div className="h-full rounded-full bg-[#F97B16]" style={{ width: `${criticas.length ? (criticas.filter((critica) => critica.nota === estrela).length / criticas.length) * 100 : 0}%` }} /></div></div>
                 ))}
               </div>
-              <div className="text-right"><p className="text-4xl font-medium leading-none text-[#102745]">4,7</p><p className="mt-1 text-sm tracking-[0.08em] text-[#F97B16]">★★★★★</p><p className="mt-1 text-[11px] text-[#1A2E4F]/60">28 críticas</p></div>
+              <div className="text-right"><p className="text-4xl font-medium leading-none text-[#102745]">{criticas.length ? mediaCriticas.toFixed(1).replace(".", ",") : "—"}</p><p className="mt-1 text-sm tracking-[0.08em] text-[#F97B16]">★★★★★</p><p className="mt-1 text-[11px] text-[#1A2E4F]/60">{criticas.length} crítica{criticas.length === 1 ? "" : "s"}</p></div>
             </div>
 
             <p className="mt-3 text-[11px] text-[#1A2E4F]/50">As críticas refletem a opinião dos participantes.</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {["Todas", "Ambiente", "Programa", "Comida", "Família"].map((filtro, indice) => <button key={filtro} type="button" className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${indice === 0 ? "border-[#EC2456]/20 bg-[#EC2456]/10 text-[#EC2456]" : "border-[#1A2E4F]/15 text-[#1A2E4F]/70 hover:border-[#EC2456]/30 hover:text-[#EC2456]"}`}>{filtro}</button>)}
-            </div>
-
             <div className="mt-4 divide-y divide-[#1A2E4F]/10">
-              {CRITICAS_MOCK.map((critica) => <article key={critica.nome} className="py-4 first:pt-1">
-                <div className="flex items-start gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: critica.cor }}>{critica.iniciais}</span><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div><h4 className="text-sm font-semibold text-[#102745]">{critica.nome}</h4><p className="mt-0.5 text-[11px] text-[#1A2E4F]/55">{critica.quando}</p></div><span className="text-sm tracking-wide text-[#F97B16]">{"★".repeat(critica.nota)}<span className="text-[#1A2E4F]/15">{"★".repeat(5 - critica.nota)}</span></span></div><p className="mt-2 text-[13px] leading-relaxed text-[#1A2E4F]/75">{critica.texto}</p><button type="button" className="mt-3 text-xs font-semibold text-[#1A2E4F]/60 transition hover:text-[#EC2456]">Útil ({critica.util})</button></div></div>
-              </article>)}
+              {aCarregarCriticas && <p className="py-5 text-center text-sm text-[#1A2E4F]/55">A carregar críticas…</p>}
+              {!aCarregarCriticas && criticas.length === 0 && <p className="py-5 text-center text-sm text-[#1A2E4F]/55">Ainda não há críticas aprovadas. Sê a primeira pessoa a partilhar a experiência.</p>}
+              {criticas.map((critica, indice) => { const nome = critica.autor_nome || "Participante"; const iniciais = nome.split(/\s+/).map((parte) => parte[0]).join("").slice(0, 2).toUpperCase(); return <article key={critica.id} className="py-4 first:pt-1">
+                <div className="flex items-start gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: CORES_CRITICA[indice % CORES_CRITICA.length] }}>{iniciais}</span><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div><h4 className="text-sm font-semibold text-[#102745]">{nome}</h4><p className="mt-0.5 text-[11px] text-[#1A2E4F]/55">{quandoCritica(critica.created_at)}</p></div><span className="text-sm tracking-wide text-[#F97B16]">{"★".repeat(critica.nota)}<span className="text-[#1A2E4F]/15">{"★".repeat(5 - critica.nota)}</span></span></div><p className="mt-2 text-[13px] leading-relaxed text-[#1A2E4F]/75">{critica.texto}</p></div></div>
+              </article>; })}
             </div>
           </section>
         )}
@@ -502,12 +518,14 @@ function ListaFestas({
   aoEscolher,
   aoFechar,
   titulo,
+  aCarregarId,
 }: {
   festas: FestaSelecionada[];
   minhaLoc: Coords | null;
   aoEscolher: (f: FestaSelecionada) => void;
   aoFechar: () => void;
   titulo?: string;
+  aCarregarId?: string;
 }) {
   const [filtro, setFiltro] = useState<"todas" | "a_decorrer" | "em_breve">("todas");
   const [ordem, setOrdem] = useState<"data" | "distancia">("data");
@@ -569,7 +587,9 @@ function ListaFestas({
               <button
                 type="button"
                 onClick={() => aoEscolher(f)}
-                className="group w-full overflow-hidden rounded-md text-left ring-1 ring-[#1A2E4F]/10 transition hover:-translate-y-0.5 hover:shadow-lg hover:ring-[#EC2456]/30"
+                disabled={Boolean(aCarregarId)}
+                aria-busy={aCarregarId === p.id}
+                className="group relative w-full overflow-hidden rounded-md text-left ring-1 ring-[#1A2E4F]/10 transition hover:-translate-y-0.5 hover:shadow-lg hover:ring-[#EC2456]/30 disabled:cursor-wait disabled:hover:translate-y-0 disabled:hover:shadow-none"
               >
                 <div className="relative h-24 w-full overflow-hidden">
                   {p.cartaz_url ? (
@@ -616,6 +636,12 @@ function ListaFestas({
                     ))}
                   </div>
                 </div>
+                {aCarregarId === p.id && (
+                  <span className="absolute inset-0 flex items-center justify-center gap-2 bg-white/90 text-sm font-bold text-[#1A2E4F] backdrop-blur-[1px]">
+                    <span className="size-4 animate-spin rounded-full border-2 border-[#EC2456]/25 border-t-[#EC2456]" />
+                    A carregar informação…
+                  </span>
+                )}
               </button>
             </li>
           );
@@ -630,9 +656,41 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
   const [lista, setLista] = useState<FestaSelecionada[]>([]);
   const [tituloLista, setTituloLista] = useState<string | undefined>();
   const [aFechar, setAFechar] = useState(false);
+  const [aCarregarDetalhe, setACarregarDetalhe] = useState<string | null>(null);
   const [minhaLoc, setMinhaLoc] = useState<Coords | null>(null);
   const pediuLoc = useRef(false);
   const mapaRef = useRef<FestaMapHandle>(null);
+  const pedidoDetalheRef = useRef(0);
+
+  const pedirLocalizacao = useCallback(() => {
+    if (pediuLoc.current || !("geolocation" in navigator)) return;
+    pediuLoc.current = true;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setMinhaLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
+    );
+  }, []);
+
+  const abrirDetalhe = useCallback(async (festa: FestaSelecionada, deLista: boolean) => {
+    const pedido = pedidoDetalheRef.current + 1;
+    pedidoDetalheRef.current = pedido;
+    setACarregarDetalhe(festa.props.id);
+    pedirLocalizacao();
+
+    let detalhe: DetalheExtra | null = null;
+    try {
+      const resposta = await fetch(`/api/festa?concelho=${encodeURIComponent(festa.props.concelho_slug)}&slug=${encodeURIComponent(festa.props.slug)}`, { cache: "no-store" });
+      detalhe = resposta.ok ? normalizarDetalhe(await resposta.json()) : null;
+    } catch {
+      detalhe = null;
+    }
+
+    if (pedido !== pedidoDetalheRef.current) return;
+    setACarregarDetalhe(null);
+    setAFechar(false);
+    setPainel({ modo: "detalhe", festa, deLista, detalhe });
+  }, [pedirLocalizacao]);
 
   useEffect(() => {
     if (painel.modo === "detalhe") mapaRef.current?.focarFesta(painel.festa.lngLat);
@@ -672,21 +730,11 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
       if (!feature) return;
       setTituloLista(undefined);
       setAFechar(false);
-      setPainel({ modo: "detalhe", festa: { props: feature.properties, lngLat: feature.geometry.coordinates as [number, number] }, deLista: false });
+      void abrirDetalhe({ props: feature.properties, lngLat: feature.geometry.coordinates as [number, number] }, false);
     };
     window.addEventListener("achafestas:abrir-festa", abrirDaPesquisa);
     return () => window.removeEventListener("achafestas:abrir-festa", abrirDaPesquisa);
-  }, [dados]);
-
-  function pedirLocalizacao() {
-    if (pediuLoc.current || !("geolocation" in navigator)) return;
-    pediuLoc.current = true;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setMinhaLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => {},
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
-    );
-  }
+  }, [dados, abrirDetalhe]);
 
   function fechar() {
     setAFechar(true);
@@ -711,7 +759,7 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
       <FestaMap
         ref={mapaRef}
         dados={dados}
-        aoEscolherFesta={(festa) => abrir({ modo: "detalhe", festa, deLista: false })}
+        aoEscolherFesta={(festa) => void abrirDetalhe(festa, false)}
         aoEscolherGrupo={(festas) => {
           setLista(festas);
           setTituloLista(undefined);
@@ -728,6 +776,7 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
             {painel.modo === "detalhe" ? (
               <DetalheFesta
                 festa={painel.festa}
+                detalhe={painel.detalhe}
                 deLista={painel.deLista}
                 minhaLoc={minhaLoc}
                 pedirLocalizacao={pedirLocalizacao}
@@ -745,10 +794,10 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
                 minhaLoc={minhaLoc}
                 titulo={painel.titulo}
                 aoEscolher={(festa) => {
-                  mapaRef.current?.focarFesta(festa.lngLat);
-                  abrir({ modo: "detalhe", festa, deLista: true });
+                  void abrirDetalhe(festa, true);
                 }}
                 aoFechar={fechar}
+                aCarregarId={aCarregarDetalhe ?? undefined}
               />
             )}
           </div>
