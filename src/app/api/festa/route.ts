@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchFestaDetalhe } from "@/lib/festa-detalhe";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -11,16 +11,21 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Parâmetros em falta" }, { status: 400 });
   }
 
-  const festa = await fetchFestaDetalhe(concelho, slug);
-  if (!festa) return NextResponse.json({ error: "Não encontrada" }, { status: 404 });
+  try {
+    const festa = await fetchFestaDetalhe(concelho, slug);
+    if (!festa) return NextResponse.json({ error: "Não encontrada" }, { status: 404 });
 
-  return NextResponse.json(
-    {
-      descricao: festa.descricao,
-      cartazUrl: festa.cartazUrl,
-      fotos: festa.fotos,
-      programa: festa.programa,
-    },
-    { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=7200" } },
-  );
+    return NextResponse.json(
+      {
+        descricao: festa.descricao,
+        cartazUrl: festa.cartazUrl,
+        fotos: festa.fotos,
+        programa: festa.programa,
+        subLocalizacoes: festa.subLocalizacoes,
+      },
+      { headers: { "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate" } },
+    );
+  } catch {
+    return NextResponse.json({ error: "Detalhe indisponível" }, { status: 503 });
+  }
 }

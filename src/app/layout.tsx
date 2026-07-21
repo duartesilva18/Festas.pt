@@ -8,13 +8,13 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Achafestas — o mapa das festas populares de Portugal",
+  title: "Achafestas | O mapa das festas populares de Portugal",
   description:
     "Descobre romarias, arraiais, feiras e festas populares perto de ti. Datas confirmadas, localização no mapa e direções — de Viana ao Algarve.",
   icons: { icon: "/logo-mark.svg" },
   metadataBase: new URL("https://achafestas.com"),
   openGraph: {
-    title: "Achafestas — o mapa das festas populares de Portugal",
+    title: "Achafestas | O mapa das festas populares de Portugal",
     description:
       "Descobre romarias, arraiais, feiras e festas populares perto de ti.",
     locale: "pt_PT",

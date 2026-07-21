@@ -19,7 +19,7 @@ import {
 type Painel =
   | { modo: "fechado" }
   | { modo: "detalhe"; festa: FestaSelecionada; deLista: boolean }
-  | { modo: "lista"; festas: FestaSelecionada[] };
+  | { modo: "lista"; festas: FestaSelecionada[]; titulo?: string };
 
 function BotaoFechar({ onClick }: { onClick: () => void }) {
   return (
@@ -42,7 +42,76 @@ type DetalheExtra = {
   cartazUrl: string | null;
   fotos: string[];
   programa: ProgramaDia[] | null;
+  subLocalizacoes?: { id: string; nome: string; tipo: string; descricao: string | null; lat: number; lng: number }[];
 };
+
+function normalizarDetalhe(valor: unknown): DetalheExtra | null {
+  if (!valor || typeof valor !== "object") return null;
+  const dados = valor as Record<string, unknown>;
+  const programa = Array.isArray(dados.programa)
+    ? dados.programa.flatMap((dia) => {
+        if (!dia || typeof dia !== "object") return [];
+        const item = dia as Record<string, unknown>;
+        const eventos = Array.isArray(item.eventos)
+          ? item.eventos.flatMap((evento) => {
+              if (!evento || typeof evento !== "object") return [];
+              const linha = evento as Record<string, unknown>;
+              return typeof linha.titulo === "string" && Boolean(linha.titulo.trim())
+                ? [{ titulo: linha.titulo, ...(typeof linha.hora === "string" ? { hora: linha.hora } : {}) }]
+                : [];
+            })
+          : [];
+        return typeof item.dia === "string" && Boolean(item.dia.trim()) && eventos.length > 0
+          ? [{ dia: item.dia, eventos }]
+          : [];
+      })
+    : null;
+  const subLocalizacoes = Array.isArray(dados.subLocalizacoes)
+    ? dados.subLocalizacoes.flatMap((local) => {
+        if (!local || typeof local !== "object") return [];
+        const item = local as Record<string, unknown>;
+        const { lat, lng } = item;
+        if (
+          typeof item.id !== "string" || typeof item.nome !== "string" || !item.nome.trim() ||
+          typeof item.tipo !== "string" || !Number.isFinite(lat) || !Number.isFinite(lng) ||
+          Math.abs(lat as number) > 90 || Math.abs(lng as number) > 180
+        ) return [];
+        return [{
+          id: item.id,
+          nome: item.nome,
+          tipo: item.tipo,
+          descricao: typeof item.descricao === "string" ? item.descricao : null,
+          lat: lat as number,
+          lng: lng as number,
+        }];
+      })
+    : [];
+
+  return {
+    descricao: typeof dados.descricao === "string" ? dados.descricao : null,
+    cartazUrl: typeof dados.cartazUrl === "string" ? dados.cartazUrl : null,
+    fotos: Array.isArray(dados.fotos) ? dados.fotos.filter((foto): foto is string => typeof foto === "string" && Boolean(foto.trim())) : [],
+    programa,
+    subLocalizacoes,
+  };
+}
+
+function IconeSublocalizacao({ tipo }: { tipo: string }) {
+  const classe = "size-4";
+  if (tipo === "estacionamento") return <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#2B6CB0]/10 text-sm font-extrabold text-[#2B6CB0]">P</span>;
+  if (tipo === "entrada") return <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#20856D]/10 text-[#20856D]"><svg className={classe} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12h15M14 6l6 6-6 6" /></svg></span>;
+  if (tipo === "palco" || tipo === "after") return <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#7C4DAD]/10 text-[#7C4DAD]"><svg className={classe} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l10-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="16" cy="16" r="3" /></svg></span>;
+  if (tipo === "bar") return <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#B75B25]/10 text-[#B75B25]"><svg className={classe} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 3h10l-1 18H8L7 3Z" /><path d="M8 8h8" /></svg></span>;
+  if (tipo === "wc") return <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#167F99]/10 text-[10px] font-extrabold text-[#167F99]">WC</span>;
+  if (tipo === "primeiros_socorros") return <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#C43D4B]/10 text-[#C43D4B]"><svg className={classe} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg></span>;
+  return <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#64748B]/10 text-[#64748B]"><svg className={classe} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg></span>;
+}
+
+const CRITICAS_MOCK = [
+  { nome: "Marta Rodrigues", iniciais: "MR", quando: "há 2 semanas", nota: 5, texto: "Uma festa muito bem organizada, com ambiente incrível e atividades para todas as idades. O cartaz estava excelente e voltaremos no próximo ano.", util: 12, cor: "#EC2456" },
+  { nome: "Tiago Almeida", iniciais: "TA", quando: "há 1 mês", nota: 3, texto: "Boa música e animação, mas a sinalização da zona de estacionamento podia ser melhor.", util: 7, cor: "#F97B16" },
+  { nome: "Inês Matos", iniciais: "IM", quando: "há 2 meses", nota: 5, texto: "Fomos em família e adorámos. A programação é variada e o recinto está muito bem cuidado.", util: 4, cor: "#1A2E4F" },
+];
 
 function DetalheFesta({
   festa,
@@ -51,6 +120,8 @@ function DetalheFesta({
   pedirLocalizacao,
   aoVoltar,
   aoFechar,
+  aoFocarSublocalizacao,
+  aoMostrarSublocalizacoes,
 }: {
   festa: FestaSelecionada;
   deLista: boolean;
@@ -58,26 +129,57 @@ function DetalheFesta({
   pedirLocalizacao: () => void;
   aoVoltar: () => void;
   aoFechar: () => void;
+  aoFocarSublocalizacao: (local: { lng: number; lat: number; nome: string }) => void;
+  aoMostrarSublocalizacoes: (locais: { lng: number; lat: number; nome: string; tipo: string }[]) => void;
 }) {
   const p = festa.props;
   const [lng, lat] = festa.lngLat;
   const cor = CORES[p.estado_temporal];
   const [extra, setExtra] = useState<DetalheExtra | null>(null);
+  const [aba, setAba] = useState<"visao" | "cartaz" | "criticas" | "acerca">("visao");
+  const [menuDirecoes, setMenuDirecoes] = useState(false);
+  const [formularioCritica, setFormularioCritica] = useState(false);
 
   useEffect(() => {
     let ativo = true;
-    setExtra(null);
-    fetch(`/api/festa?concelho=${p.concelho_slug}&slug=${p.slug}`)
+    aoMostrarSublocalizacoes([]);
+    fetch(`/api/festa?concelho=${p.concelho_slug}&slug=${p.slug}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => ativo && d && setExtra(d))
+      .then((resposta) => {
+        const detalhe = normalizarDetalhe(resposta);
+        if (!ativo || !detalhe) return;
+        setExtra(detalhe);
+        aoMostrarSublocalizacoes(detalhe.subLocalizacoes ?? []);
+      })
       .catch(() => {});
     return () => {
       ativo = false;
     };
-  }, [p.concelho_slug, p.slug]);
+  }, [p.concelho_slug, p.slug, aoMostrarSublocalizacoes]);
 
-  const cartaz = extra?.cartazUrl ?? p.cartaz_url;
-  const fotos = extra?.fotos ?? [];
+  const cartaz = typeof extra?.cartazUrl === "string" ? extra.cartazUrl : p.cartaz_url;
+  const fotos = Array.isArray(extra?.fotos) ? extra.fotos.filter(Boolean) : [];
+  const subLocalizacoes = (extra?.subLocalizacoes ?? []).filter(
+    (local) => Number.isFinite(local.lat) && Number.isFinite(local.lng) && local.nome.trim().length > 0,
+  );
+  const descricao = extra?.descricao;
+  const abrirDirecoes = () => {
+    const destino = `${lat},${lng}`;
+    const telemovel = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (!telemovel) {
+      setMenuDirecoes((aberto) => !aberto);
+      return;
+    }
+    if (/Android/i.test(navigator.userAgent)) {
+      window.location.assign(`geo:0,0?q=${destino}(${encodeURIComponent(p.nome)})`);
+      return;
+    }
+    window.location.assign(`https://maps.apple.com/?daddr=${destino}`);
+  };
+  const selecionarAba = (proximaAba: "visao" | "cartaz" | "criticas" | "acerca") => {
+    setMenuDirecoes(false);
+    setAba(proximaAba);
+  };
 
   return (
     <div className="relative flex h-full flex-col">
@@ -98,14 +200,22 @@ function DetalheFesta({
       <div className="relative shrink-0">
         {cartaz ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cartaz} alt={`Cartaz de ${p.nome}`} className="h-36 w-full object-cover" />
+          <img src={cartaz} alt={`Cartaz de ${p.nome}`} className="h-32 w-full object-cover" />
         ) : (
-          <div className="flex h-36 w-full items-center justify-center bg-gradient-to-b from-[#F97B16] to-[#EC2456]">
+          <div className="flex h-32 w-full items-center justify-center bg-gradient-to-b from-[#F97B16] to-[#EC2456]">
             <Image src="/logo-mark.svg" alt="" width={60} height={60} className="opacity-90 drop-shadow" />
           </div>
         )}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#102745]/80 via-[#102745]/25 to-transparent px-4 pb-3 pt-8 text-white">
+          <h2 className="truncate pr-24 text-lg font-bold leading-tight drop-shadow-sm">{p.nome}</h2>
+          <p className="mt-0.5 truncate pr-24 text-xs text-white/80">{p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho} · {p.distrito}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 pr-20 text-[11px] font-semibold">
+            <span className="text-white">{formatarDatas(p.data_inicio, p.data_fim)} · {p.ano}</span>
+            {p.categorias?.map((categoria) => <span key={categoria} className="capitalize text-white/75 before:mr-1.5 before:content-['·']">{categoria}</span>)}
+          </div>
+        </div>
         <span
-          className="absolute bottom-3 left-4 inline-flex items-center gap-1.5 rounded-[3px] bg-white/95 px-2 py-1 text-[10px] font-bold uppercase tracking-wide shadow-sm"
+          className="absolute right-4 top-12 inline-flex items-center gap-1.5 rounded-[3px] bg-white/95 px-2 py-1 text-[10px] font-bold uppercase tracking-wide shadow-sm"
           style={{ color: cor }}
         >
           <span className="size-1.5 rounded-full" style={{ backgroundColor: cor }} />
@@ -113,9 +223,44 @@ function DetalheFesta({
         </span>
       </div>
 
+      <div className="grid shrink-0 grid-cols-4 border-b border-[#1A2E4F]/10 bg-white px-2">
+        {([['visao', 'Visão geral'], ['cartaz', 'Cartaz'], ['criticas', 'Críticas'], ['acerca', 'Acerca de']] as const).map(([id, texto]) => (
+          <button key={id} type="button" onClick={() => selecionarAba(id)} className={`relative px-1 py-3 text-xs font-semibold transition-colors duration-150 ${aba === id ? 'text-[#EC2456]' : 'text-[#1A2E4F]/60 hover:text-[#EC2456]'}`}>
+            {texto}{aba === id && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-[#EC2456]" />}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid shrink-0 grid-cols-4 border-b border-[#1A2E4F]/10 bg-white px-3 py-2 text-center text-[11px] font-medium text-[#1A2E4F]">
+        <div className="relative">
+          <button type="button" onClick={abrirDirecoes} aria-expanded={menuDirecoes} className="group flex w-full flex-col items-center gap-1.5 rounded-lg py-1 transition-colors duration-150 hover:bg-[#EC2456]/[0.06] hover:text-[#EC2456]">
+            <span className="flex size-9 items-center justify-center rounded-full bg-[#EC2456]/10 text-[#EC2456] transition-colors duration-150 group-hover:bg-[#EC2456]/20"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 11l19-9-9 19-2-8-8-2z" /></svg></span>Direções
+          </button>
+          {menuDirecoes && <div className="menu-direcoes-entrada absolute left-0 top-full z-20 mt-2 w-36 overflow-hidden rounded-lg border border-[#1A2E4F]/10 bg-white p-1 text-left shadow-xl">
+            <a href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`} target="_blank" rel="noopener noreferrer" onClick={() => setMenuDirecoes(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold text-[#1A2E4F] transition hover:bg-[#EC2456]/[0.07] hover:text-[#EC2456]">
+              <svg aria-hidden="true" width="16" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M12 2a7 7 0 0 0-7 7c0 5.1 7 13 7 13s7-7.9 7-13a7 7 0 0 0-7-7Z"/><path fill="#34A853" d="M5.2 10.5C6.4 15.3 12 22 12 22s2.7-3 4.7-6.2l-5-5.3Z"/><circle cx="12" cy="9" r="3" fill="#FBBC04"/></svg>
+              Google Maps
+            </a>
+            <a href={`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`} target="_blank" rel="noopener noreferrer" onClick={() => setMenuDirecoes(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold text-[#1A2E4F] transition hover:bg-[#EC2456]/[0.07] hover:text-[#EC2456]">
+              <svg aria-hidden="true" width="19" height="18" viewBox="0 0 24 24" fill="none" stroke="#33CCFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M7 16.5a7 7 0 1 1 10 0c-.9 1.1-2.3 1.8-5 1.8s-4.1-.7-5-1.8Z"/><path d="M9 19.5c.7 1 1.7 1.5 3 1.5s2.3-.5 3-1.5M8 10.5h.01M16 10.5h.01"/><path d="M4 14.5l-1.5 1M20 14.5l1.5 1"/></svg>
+              Waze
+            </a>
+          </div>}
+        </div>
+        <button type="button" onClick={() => setMenuDirecoes(false)} className="group flex flex-col items-center gap-1.5 rounded-lg py-1 transition-colors duration-150 hover:bg-[#F97B16]/[0.06] hover:text-[#EC2456]" aria-label="Guardar festa">
+          <span className="flex size-9 items-center justify-center rounded-full bg-[#EC2456]/10 text-[#EC2456] transition-colors duration-150 group-hover:bg-[#EC2456]/20"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3h12v18l-6-4-6 4z" /></svg></span>Guardar
+        </button>
+        <button type="button" onClick={() => selecionarAba("cartaz")} className="group flex flex-col items-center gap-1.5 rounded-lg py-1 transition-colors duration-150 hover:bg-[#EC2456]/[0.06] hover:text-[#EC2456]">
+          <span className="flex size-9 items-center justify-center rounded-full bg-[#EC2456]/10 text-[#EC2456] transition-colors duration-150 group-hover:bg-[#EC2456]/20"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></svg></span>Cartaz
+        </button>
+        <button type="button" onClick={() => { setMenuDirecoes(false); void navigator.share?.({ title: p.nome, url: `${window.location.origin}/festas/${p.concelho_slug}/${p.slug}` }).catch(() => {}); }} className="group flex flex-col items-center gap-1.5 rounded-lg py-1 transition-colors duration-150 hover:bg-[#F97B16]/[0.06] hover:text-[#EC2456]">
+          <span className="flex size-9 items-center justify-center rounded-full bg-[#EC2456]/10 text-[#EC2456] transition-colors duration-150 group-hover:bg-[#EC2456]/20"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4" /></svg></span>Partilhar
+        </button>
+      </div>
+
       <div className="flex-1 overflow-y-auto p-5">
-        <h2 className="text-lg font-bold leading-snug text-[#1A2E4F]">{p.nome}</h2>
-        <p className="mt-1 flex items-center gap-1.5 text-sm text-[#1A2E4F]/60">
+        {aba === "visao" && <>
+        <p className="sr-only">
           <span className="text-[#EC2456]">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" />
@@ -124,38 +269,8 @@ function DetalheFesta({
           {p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho} · {p.distrito}
         </p>
 
-        <div className="mt-3 flex items-center gap-2 rounded-md bg-[#1A2E4F]/[0.05] px-3 py-2 text-[13px] font-semibold text-[#1A2E4F]">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M8 2v4M16 2v4M3 10h18" /><rect x="5" y="4" width="14" height="16" rx="1" />
-          </svg>
-          {formatarDatas(p.data_inicio, p.data_fim)} · {p.ano}
-        </div>
-
-        {p.categorias?.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {p.categorias.map((c) => (
-              <span key={c} className="rounded-[3px] bg-[#1A2E4F]/[0.06] px-2 py-0.5 text-[11px] font-medium capitalize text-[#1A2E4F]/65">
-                {c}
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <a href={`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`} target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 rounded border border-[#1A2E4F]/15 py-2 text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#1A2E4F]/5">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z" /></svg>
-            Waze
-          </a>
-          <a href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`} target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 rounded border border-[#1A2E4F]/15 py-2 text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#1A2E4F]/5">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg>
-            Direções
-          </a>
-        </div>
-
         {minhaLoc ? (
-          <div className="mt-3 flex items-center gap-2 rounded-md border border-[#EC2456]/20 bg-[#EC2456]/[0.04] px-3 py-2 text-[13px] text-[#1A2E4F]">
+          <div className="mt-2 flex items-center gap-1.5 text-xs text-[#1A2E4F]/65">
             <span className="text-[#EC2456]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 16H9m10 0a3 3 0 1 1-6 0m6 0V9l-2-4H7L5 9v7m0 0a3 3 0 1 0 6 0" /></svg>
             </span>
@@ -169,17 +284,31 @@ function DetalheFesta({
           <button
             type="button"
             onClick={pedirLocalizacao}
-            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-[#1A2E4F]/25 py-2 text-[13px] font-medium text-[#1A2E4F]/70 transition hover:border-[#EC2456]/40 hover:text-[#EC2456]"
+            className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-[#1A2E4F]/60 transition hover:text-[#EC2456]"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg>
             Ver a que distância estás
           </button>
         )}
 
-        {extra?.descricao && (
-          <section className="mt-5">
+        {subLocalizacoes.length > 0 && (
+          <section className="mt-5 border-t border-[#1A2E4F]/10 pt-4">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-[#1A2E4F]/45">No recinto</h3>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {subLocalizacoes.map((local) => (
+                <button key={local.id} type="button" onClick={() => aoFocarSublocalizacao(local)} className="group flex min-h-20 items-center gap-2.5 rounded-lg border border-[#1A2E4F]/10 p-3 text-left transition hover:border-[#EC2456]/35 hover:bg-[#EC2456]/[0.035]">
+                  <IconeSublocalizacao tipo={local.tipo} />
+                  <span className="line-clamp-2 text-[13px] font-semibold leading-snug text-[#102745] transition group-hover:text-[#EC2456]">{local.nome}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {descricao && (
+          <section className="mt-6 border-t border-[#1A2E4F]/10 pt-5">
             <h3 className="text-xs font-bold uppercase tracking-wide text-[#1A2E4F]/45">Sobre</h3>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-[#1A2E4F]/75">{extra.descricao}</p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-[#1A2E4F]/75">{descricao}</p>
           </section>
         )}
 
@@ -192,8 +321,21 @@ function DetalheFesta({
           </section>
         )}
 
+        <section className="mt-5 border-t border-[#1A2E4F]/10 pt-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2"><h3 className="text-sm font-bold text-[#102745]">Opiniões recentes</h3><span className="text-xs font-semibold text-[#F97B16]">4,7 ★</span></div>
+            <button type="button" onClick={() => selecionarAba("criticas")} className="text-xs font-semibold text-[#EC2456] transition hover:text-[#d11a47]">Ver todas</button>
+          </div>
+          <div className="mt-2.5 space-y-2.5">
+            {CRITICAS_MOCK.slice(0, 2).map((critica) => <button key={critica.nome} type="button" onClick={() => selecionarAba("criticas")} className="block w-full text-left">
+              <p className="line-clamp-1 text-[13px] leading-relaxed text-[#1A2E4F]/75">“{critica.texto}”</p>
+              <p className="mt-0.5 text-[11px] text-[#1A2E4F]/55">{critica.nome} · <span className="text-[#F97B16]">{"★".repeat(critica.nota)}</span></p>
+            </button>)}
+          </div>
+        </section>
+
         {extra?.programa && extra.programa.length > 0 && (
-          <section className="mt-5">
+          <section className="mt-6 border-t border-[#1A2E4F]/10 pt-5">
             <h3 className="text-xs font-bold uppercase tracking-wide text-[#1A2E4F]/45">Programa</h3>
             <div className="mt-2 space-y-3">
               {extra.programa.map((dia) => (
@@ -210,6 +352,80 @@ function DetalheFesta({
                 </div>
               ))}
             </div>
+          </section>
+        )}
+
+        </>}
+
+        {aba === "cartaz" && (
+          <section>
+            <div className="flex items-start justify-between px-1">
+              <div><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#EC2456]">Edição {p.ano}</p><h3 className="mt-1 text-lg font-bold text-[#102745]">Cartaz oficial</h3></div>
+              <span className="rounded-full bg-[#F97B16]/10 px-2.5 py-1 text-[11px] font-bold text-[#d65c00]">Confirmado</span>
+            </div>
+            {cartaz ? (
+              <div className="mt-3 rounded-lg border border-[#1A2E4F]/10 bg-[#f8fafb] p-3">
+                <div className="hidden" />
+                <div className="hidden" />
+                <div className="mx-auto overflow-hidden rounded-md border border-[#1A2E4F]/10 bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={cartaz} alt={`Cartaz de ${p.nome}`} className="w-full object-contain" />
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 rounded-lg bg-[#f3f6f8] p-4 text-sm text-[#1A2E4F]/65">O cartaz desta edição será publicado em breve.</p>
+            )}
+            <div className="mt-4 rounded-xl border border-[#1A2E4F]/10 bg-[#f8fafb] px-4 py-3"><p className="text-[11px] font-bold uppercase tracking-wide text-[#1A2E4F]/45">Marca na agenda</p><p className="mt-1 text-sm font-semibold text-[#102745]">{formatarDatas(p.data_inicio, p.data_fim)} · {p.ano}</p></div>
+          </section>
+        )}
+
+        {aba === "criticas" && (
+          <section>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-bold text-[#102745]">Críticas</h3>
+                <p className="mt-0.5 text-xs text-[#1A2E4F]/55">Experiências de quem já participou</p>
+              </div>
+              <button type="button" onClick={() => setFormularioCritica((aberto) => !aberto)} className="shrink-0 rounded-full bg-[#EC2456]/10 px-3 py-1.5 text-xs font-bold text-[#EC2456] transition hover:bg-[#EC2456]/15">
+                {formularioCritica ? "Fechar" : "Escrever crítica"}
+              </button>
+            </div>
+
+            {formularioCritica && <div className="mt-4 rounded-xl border border-[#EC2456]/20 bg-[#fff8fa] p-3">
+              <p className="text-sm font-semibold text-[#102745]">Como foi a tua experiência?</p>
+              <div className="mt-2 flex gap-1 text-[#F97B16]" aria-label="Selecionar avaliação de cinco estrelas">★★★★★</div>
+              <textarea className="mt-3 min-h-20 w-full resize-none rounded-lg border border-[#1A2E4F]/15 bg-white p-2.5 text-sm outline-none transition focus:border-[#EC2456]" placeholder="Conta-nos o que gostaste nesta festa…" />
+              <button type="button" onClick={() => setFormularioCritica(false)} className="mt-2 w-full rounded-lg bg-[#EC2456] py-2 text-sm font-bold text-white transition hover:bg-[#d11a47]">Publicar crítica</button>
+            </div>}
+
+            <div className="mt-5 grid grid-cols-[1fr_auto] items-center gap-5 border-y border-[#1A2E4F]/10 py-4">
+              <div className="space-y-1.5">
+                {[5, 4, 3, 2, 1].map((estrela, indice) => (
+                  <div key={estrela} className="flex items-center gap-2 text-[11px] text-[#1A2E4F]/65"><span className="w-2">{estrela}</span><div className="h-2 flex-1 overflow-hidden rounded-full bg-[#1A2E4F]/[0.07]"><div className="h-full rounded-full bg-[#F97B16]" style={{ width: `${[76, 17, 5, 1, 1][indice]}%` }} /></div></div>
+                ))}
+              </div>
+              <div className="text-right"><p className="text-4xl font-medium leading-none text-[#102745]">4,7</p><p className="mt-1 text-sm tracking-[0.08em] text-[#F97B16]">★★★★★</p><p className="mt-1 text-[11px] text-[#1A2E4F]/60">28 críticas</p></div>
+            </div>
+
+            <p className="mt-3 text-[11px] text-[#1A2E4F]/50">As críticas refletem a opinião dos participantes.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {["Todas", "Ambiente", "Programa", "Comida", "Família"].map((filtro, indice) => <button key={filtro} type="button" className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${indice === 0 ? "border-[#EC2456]/20 bg-[#EC2456]/10 text-[#EC2456]" : "border-[#1A2E4F]/15 text-[#1A2E4F]/70 hover:border-[#EC2456]/30 hover:text-[#EC2456]"}`}>{filtro}</button>)}
+            </div>
+
+            <div className="mt-4 divide-y divide-[#1A2E4F]/10">
+              {CRITICAS_MOCK.map((critica) => <article key={critica.nome} className="py-4 first:pt-1">
+                <div className="flex items-start gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: critica.cor }}>{critica.iniciais}</span><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div><h4 className="text-sm font-semibold text-[#102745]">{critica.nome}</h4><p className="mt-0.5 text-[11px] text-[#1A2E4F]/55">{critica.quando}</p></div><span className="text-sm tracking-wide text-[#F97B16]">{"★".repeat(critica.nota)}<span className="text-[#1A2E4F]/15">{"★".repeat(5 - critica.nota)}</span></span></div><p className="mt-2 text-[13px] leading-relaxed text-[#1A2E4F]/75">{critica.texto}</p><button type="button" className="mt-3 text-xs font-semibold text-[#1A2E4F]/60 transition hover:text-[#EC2456]">Útil ({critica.util})</button></div></div>
+              </article>)}
+            </div>
+          </section>
+        )}
+
+        {aba === "acerca" && (
+          <section className="space-y-4">
+            <h3 className="text-sm font-bold text-[#102745]">Acerca de {p.nome}</h3>
+            <div className="flex gap-3 text-sm text-[#1A2E4F]/75"><svg className="mt-0.5 shrink-0 text-[#007c91]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg><span>{p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho}, {p.distrito}</span></div>
+            <div className="flex gap-3 text-sm text-[#1A2E4F]/75"><svg className="mt-0.5 shrink-0 text-[#007c91]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></svg><span>{formatarDatas(p.data_inicio, p.data_fim)} de {p.ano}</span></div>
+            {descricao && <p className="border-t border-[#1A2E4F]/10 pt-4 text-sm leading-relaxed text-[#1A2E4F]/75">{descricao}</p>}
           </section>
         )}
 
@@ -230,28 +446,66 @@ function ListaFestas({
   minhaLoc,
   aoEscolher,
   aoFechar,
+  titulo,
 }: {
   festas: FestaSelecionada[];
   minhaLoc: Coords | null;
   aoEscolher: (f: FestaSelecionada) => void;
   aoFechar: () => void;
+  titulo?: string;
 }) {
-  const ordenadas = [...festas].sort((a, b) =>
-    a.props.data_inicio.localeCompare(b.props.data_inicio),
-  );
-  const concelhos = [...new Set(ordenadas.map((f) => f.props.concelho))];
+  const [filtro, setFiltro] = useState<"todas" | "a_decorrer" | "em_breve">("todas");
+  const [ordem, setOrdem] = useState<"data" | "distancia">("data");
+  const contagens = {
+    todas: festas.length,
+    a_decorrer: festas.filter((f) => f.props.estado_temporal === "a_decorrer").length,
+    em_breve: festas.filter((f) => f.props.estado_temporal === "em_breve").length,
+  };
+  const filtradas = festas.filter((f) => filtro === "todas" || f.props.estado_temporal === filtro);
+  const ordenadas = [...filtradas].sort((a, b) => {
+    if (ordem === "distancia" && minhaLoc) {
+      return distanciaKm(minhaLoc, { lat: a.lngLat[1], lng: a.lngLat[0] }) - distanciaKm(minhaLoc, { lat: b.lngLat[1], lng: b.lngLat[0] });
+    }
+    const prioridade = { a_decorrer: 0, em_breve: 1, futuro: 2 } as const;
+    return prioridade[a.props.estado_temporal] - prioridade[b.props.estado_temporal]
+      || a.props.data_inicio.localeCompare(b.props.data_inicio);
+  });
+  const concelhos = [...new Set(festas.map((f) => f.props.concelho))];
 
   return (
     <div className="relative flex h-full flex-col">
       <BotaoFechar onClick={aoFechar} />
-      <div className="shrink-0 border-b border-[#1A2E4F]/10 p-5 pb-4">
-        <h2 className="text-lg font-bold text-[#1A2E4F]">
-          {ordenadas.length} festas nesta zona
-        </h2>
+      <div className="shrink-0 border-b border-[#1A2E4F]/10 p-5 pb-4 pr-14">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-bold text-[#1A2E4F]">{titulo ?? `${festas.length} festas nesta zona`}</h2>
+          {minhaLoc && (
+            <button type="button" onClick={() => setOrdem((atual) => atual === "data" ? "distancia" : "data")} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#1A2E4F]/12 px-2.5 py-1.5 text-[11px] font-bold text-[#1A2E4F]/70 transition hover:border-[#EC2456]/35 hover:text-[#EC2456]">
+              {ordem === "distancia" ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="8" /><path d="m12 8 2.5 5L12 16l-2.5-3L12 8Z" /></svg> : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></svg>}
+              {ordem === "distancia" ? "Mais perto" : "Por data"}
+            </button>
+          )}
+        </div>
         <p className="mt-0.5 truncate text-sm text-[#1A2E4F]/60">{concelhos.join(" · ")}</p>
+        <div className="mt-3 grid grid-cols-3 rounded-lg bg-[#1A2E4F]/[0.045] p-1">
+          {([
+            ["todas", "Todas"],
+            ["a_decorrer", "Agora"],
+            ["em_breve", "Em breve"],
+          ] as const).map(([id, texto]) => (
+            <button key={id} type="button" onClick={() => setFiltro(id)} className={`rounded-md px-1 py-1.5 text-[11px] font-bold transition ${filtro === id ? "bg-white text-[#EC2456] shadow-sm" : "text-[#1A2E4F]/55 hover:text-[#1A2E4F]"}`}>
+              {texto} <span className="ml-0.5 opacity-60">{contagens[id]}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <ul className="flex-1 space-y-3 overflow-y-auto p-4">
+        {ordenadas.length === 0 && (
+          <li className="rounded-lg border border-dashed border-[#1A2E4F]/15 px-4 py-6 text-center text-sm text-[#1A2E4F]/55">
+            {festas.length === 0 ? "Não encontrámos nenhuma festa com essa pesquisa." : `Não há festas ${filtro === "a_decorrer" ? "a decorrer" : "em breve"} nesta zona.`}
+            {festas.length > 0 && <button type="button" onClick={() => setFiltro("todas")} className="mt-2 block w-full text-xs font-bold text-[#EC2456]">Ver todas</button>}
+          </li>
+        )}
         {ordenadas.map((f) => {
           const p = f.props;
           const cor = CORES[p.estado_temporal];
@@ -319,10 +573,55 @@ function ListaFestas({
 export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
   const [painel, setPainel] = useState<Painel>({ modo: "fechado" });
   const [lista, setLista] = useState<FestaSelecionada[]>([]);
+  const [tituloLista, setTituloLista] = useState<string | undefined>();
   const [aFechar, setAFechar] = useState(false);
   const [minhaLoc, setMinhaLoc] = useState<Coords | null>(null);
   const pediuLoc = useRef(false);
   const mapaRef = useRef<FestaMapHandle>(null);
+
+  useEffect(() => {
+    if (painel.modo === "detalhe") mapaRef.current?.focarFesta(painel.festa.lngLat);
+  }, [painel]);
+
+  useEffect(() => {
+    const pesquisar = (evento: Event) => {
+      const termo = evento instanceof CustomEvent ? evento.detail : "";
+      if (typeof termo !== "string" || !termo.trim()) return;
+      const consulta = termo.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const resultados = dados.features.flatMap((feature) => {
+        const p = feature.properties;
+        const texto = [p.nome, p.freguesia, p.concelho, p.distrito, ...(p.categorias ?? [])]
+          .filter(Boolean)
+          .join(" ")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+        return texto.includes(consulta)
+          ? [{ props: p, lngLat: feature.geometry.coordinates as [number, number] }]
+          : [];
+      });
+      setLista(resultados);
+      setTituloLista(resultados.length ? `${resultados.length} resultado${resultados.length === 1 ? "" : "s"}` : "Sem resultados");
+      setAFechar(false);
+      setPainel({ modo: "lista", festas: resultados, titulo: resultados.length ? `${resultados.length} resultado${resultados.length === 1 ? "" : "s"}` : "Sem resultados" });
+    };
+    window.addEventListener("achafestas:pesquisa", pesquisar);
+    return () => window.removeEventListener("achafestas:pesquisa", pesquisar);
+  }, [dados]);
+
+  useEffect(() => {
+    const abrirDaPesquisa = (evento: Event) => {
+      const id = evento instanceof CustomEvent ? evento.detail : "";
+      if (typeof id !== "string") return;
+      const feature = dados.features.find((festa) => festa.properties.id === id);
+      if (!feature) return;
+      setTituloLista(undefined);
+      setAFechar(false);
+      setPainel({ modo: "detalhe", festa: { props: feature.properties, lngLat: feature.geometry.coordinates as [number, number] }, deLista: false });
+    };
+    window.addEventListener("achafestas:abrir-festa", abrirDaPesquisa);
+    return () => window.removeEventListener("achafestas:abrir-festa", abrirDaPesquisa);
+  }, [dados]);
 
   function pedirLocalizacao() {
     if (pediuLoc.current || !("geolocation" in navigator)) return;
@@ -360,13 +659,14 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
         aoEscolherFesta={(festa) => abrir({ modo: "detalhe", festa, deLista: false })}
         aoEscolherGrupo={(festas) => {
           setLista(festas);
+          setTituloLista(undefined);
           abrir({ modo: "lista", festas });
         }}
       />
 
       {painel.modo !== "fechado" && (
         <div
-          className={`painel-entrada absolute z-10 overflow-hidden bg-white shadow-2xl ring-1 ring-[#1A2E4F]/10 inset-x-0 bottom-0 h-[68vh] rounded-t-xl sm:inset-x-auto sm:bottom-4 sm:left-4 sm:top-4 sm:h-auto sm:w-[360px] sm:rounded-lg ${aFechar ? "painel-saida" : ""}`}
+          className={`painel-entrada absolute z-10 overflow-hidden bg-white shadow-2xl ring-1 ring-[#1A2E4F]/10 inset-x-0 bottom-0 h-[68vh] rounded-t-xl sm:inset-x-auto sm:bottom-4 sm:left-4 sm:top-4 sm:h-auto sm:w-[410px] sm:rounded-lg ${aFechar ? "painel-saida" : ""}`}
         >
           <div className="absolute left-1/2 top-2 z-20 h-1 w-9 -translate-x-1/2 rounded-full bg-[#1A2E4F]/20 sm:hidden" />
           <div key={chaveConteudo} className="conteudo-entrada h-full">
@@ -376,14 +676,23 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
                 deLista={painel.deLista}
                 minhaLoc={minhaLoc}
                 pedirLocalizacao={pedirLocalizacao}
-                aoVoltar={() => abrir({ modo: "lista", festas: lista })}
+                aoVoltar={() => {
+                  mapaRef.current?.afastarFesta(painel.festa.lngLat);
+                  abrir({ modo: "lista", festas: lista, titulo: tituloLista });
+                }}
                 aoFechar={fechar}
+                aoFocarSublocalizacao={(local) => mapaRef.current?.focarSublocalizacao(local)}
+                aoMostrarSublocalizacoes={(locais) => mapaRef.current?.mostrarSublocalizacoes(locais)}
               />
             ) : (
               <ListaFestas
                 festas={painel.festas}
                 minhaLoc={minhaLoc}
-                aoEscolher={(festa) => abrir({ modo: "detalhe", festa, deLista: true })}
+                titulo={painel.titulo}
+                aoEscolher={(festa) => {
+                  mapaRef.current?.focarFesta(festa.lngLat);
+                  abrir({ modo: "detalhe", festa, deLista: true });
+                }}
                 aoFechar={fechar}
               />
             )}

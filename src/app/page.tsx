@@ -1,6 +1,6 @@
 import Link from "next/link";
 import MapaFestas from "@/components/MapaFestas";
-import Navbar from "@/components/Navbar";
+import Navbar, { type OpcaoPesquisa } from "@/components/Navbar";
 import { fetchFestasGeoJSON } from "@/lib/eventos";
 
 export const revalidate = 300;
@@ -13,10 +13,16 @@ const LEGENDA = [
 
 export default async function Home() {
   const dados = await fetchFestasGeoJSON();
+  const opcoesPesquisa: OpcaoPesquisa[] = dados.features.map((festa) => ({
+    id: festa.properties.id,
+    nome: festa.properties.nome,
+    localizacao: [festa.properties.freguesia, festa.properties.concelho, festa.properties.distrito].filter(Boolean).join(" · "),
+    cartazUrl: festa.properties.cartaz_url,
+  }));
 
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-white">
-      <Navbar contagem={dados.features.length} />
+      <Navbar contagem={dados.features.length} opcoesPesquisa={opcoesPesquisa} />
 
       <main className="relative z-0 min-h-0 flex-1">
         <MapaFestas dados={dados} />

@@ -82,7 +82,52 @@ type Props = {
 
 export type FestaMapHandle = {
   reporVista: () => void;
+  focarFesta: (lngLat: [number, number]) => void;
+  afastarFesta: (lngLat: [number, number]) => void;
+  focarSublocalizacao: (local: { lng: number; lat: number; nome: string }) => void;
+  mostrarSublocalizacoes: (locais: { lng: number; lat: number; nome: string; tipo: string }[]) => void;
 };
+
+const PIN_RECINTO: Record<string, { icone: string; cor: string; descricao: string }> = {
+  estacionamento: { icone: "P", cor: "#2B6CB0", descricao: "Estacionamento" },
+  entrada: { icone: "→", cor: "#20856D", descricao: "Entrada" },
+  palco: { icone: "♬", cor: "#7C4DAD", descricao: "Palco" },
+  after: { icone: "✦", cor: "#5E3A9E", descricao: "After" },
+  bar: { icone: "☕", cor: "#B75B25", descricao: "Bar" },
+  wc: { icone: "WC", cor: "#167F99", descricao: "Casas de banho" },
+  primeiros_socorros: { icone: "+", cor: "#C43D4B", descricao: "Primeiros socorros" },
+  outro: { icone: "•", cor: "#64748B", descricao: "Ponto no recinto" },
+};
+
+function criarPinRecinto(tipo: string, nome: string) {
+  const configuracao = PIN_RECINTO[tipo] ?? PIN_RECINTO.outro;
+  const elemento = document.createElement("div");
+  elemento.className = "mapa-sublocalizacao";
+  elemento.style.setProperty("--pin-cor", configuracao.cor);
+  elemento.setAttribute("aria-label", `${configuracao.descricao}: ${nome}`);
+  elemento.setAttribute("title", `${configuracao.descricao}: ${nome}`);
+  elemento.innerHTML = `<span>${configuracao.icone}</span>`;
+  return elemento;
+}
+
+function popupSublocalizacao(local: { nome: string; tipo: string; lat: number; lng: number }) {
+  const conteudo = document.createElement("div");
+  conteudo.className = "mapa-popup-recinto";
+  const tipo = document.createElement("span");
+  tipo.className = "mapa-popup-tipo";
+  tipo.textContent = (PIN_RECINTO[local.tipo] ?? PIN_RECINTO.outro).descricao;
+  const titulo = document.createElement("strong");
+  titulo.className = "mapa-popup-titulo";
+  titulo.textContent = local.nome;
+  const ligacao = document.createElement("a");
+  ligacao.href = `https://www.google.com/maps/dir/?api=1&destination=${local.lat},${local.lng}`;
+  ligacao.target = "_blank";
+  ligacao.rel = "noopener noreferrer";
+  ligacao.textContent = "Abrir localização  →";
+  ligacao.className = "mapa-popup-localizacao";
+  conteudo.append(tipo, titulo, ligacao);
+  return conteudo;
+}
 
 const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
   { dados, aoEscolherFesta, aoEscolherGrupo },
@@ -90,6 +135,7 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const marcadoresSublocalizacaoRef = useRef<maplibregl.Marker[]>([]);
   const escolherFestaRef = useRef(aoEscolherFesta);
   const escolherGrupoRef = useRef(aoEscolherGrupo);
   escolherFestaRef.current = aoEscolherFesta;
@@ -97,10 +143,52 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
 
   useImperativeHandle(ref, () => ({
     reporVista() {
+      marcadoresSublocalizacaoRef.current.forEach((marcador) => marcador.remove());
+      marcadoresSublocalizacaoRef.current = [];
       mapRef.current?.fitBounds(PORTUGAL_BOUNDS, {
         padding: 24,
         duration: 900,
         essential: true,
+      });
+    },
+    focarFesta(lngLat) {
+      const map = mapRef.current;
+      if (!map) return;
+      map.easeTo({ center: lngLat, zoom: Math.max(map.getZoom(), 15), padding: { left: 450 }, duration: 700, essential: true });
+    },
+    afastarFesta(lngLat) {
+      const map = mapRef.current;
+      if (!map) return;
+      marcadoresSublocalizacaoRef.current.forEach((marcador) => marcador.remove());
+      marcadoresSublocalizacaoRef.current = [];
+      map.easeTo({ center: lngLat, zoom: 12, padding: { left: 450 }, duration: 650, essential: true });
+    },
+    focarSublocalizacao(local) {
+      const map = mapRef.current;
+      if (!map) return;
+      const marcador = marcadoresSublocalizacaoRef.current.find((item) => item.getLngLat().lng === local.lng && item.getLngLat().lat === local.lat);
+      marcador?.togglePopup();
+      map.easeTo({ center: [local.lng, local.lat], zoom: Math.max(map.getZoom(), 16), padding: { left: 440 }, duration: 600 });
+    },
+    mostrarSublocalizacoes(locais) {
+      const map = mapRef.current;
+      if (!map) return;
+      marcadoresSublocalizacaoRef.current.forEach((marcador) => marcador.remove());
+      marcadoresSublocalizacaoRef.current = locais.map((local) => {
+        const elemento = criarPinRecinto(local.tipo, local.nome);
+        elemento.addEventListener("click", () => {
+          map.easeTo({
+            center: [local.lng, local.lat],
+            zoom: Math.max(map.getZoom(), 17),
+            padding: { left: 440 },
+            duration: 550,
+            essential: true,
+          });
+        });
+        return new maplibregl.Marker({ element: elemento, anchor: "bottom" })
+          .setLngLat([local.lng, local.lat])
+          .setPopup(new maplibregl.Popup({ offset: 26 }).setDOMContent(popupSublocalizacao(local)))
+          .addTo(map);
       });
     },
   }));
@@ -221,7 +309,9 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
 
       map.on("click", "clusters", async (e) => {
         const feature = map.queryRenderedFeatures(e.point, { layers: ["clusters"] })[0];
+        if (!feature) return;
         const clusterId = feature.properties?.cluster_id;
+        if (typeof clusterId !== "number") return;
         const source = map.getSource("festas") as maplibregl.GeoJSONSource;
 
         const folhas = await source.getClusterLeaves(clusterId, 100, 0);
@@ -239,7 +329,13 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
         if (!feature) return;
         const sel = paraSelecao(feature);
         escolherFestaRef.current?.(sel);
-        map.easeTo({ center: sel.lngLat, padding: { left: 400 } });
+        map.easeTo({
+          center: sel.lngLat,
+          zoom: Math.max(map.getZoom(), 15),
+          padding: { left: 450 },
+          duration: 700,
+          essential: true,
+        });
       });
 
       for (const layer of ["clusters", "festas-pontos"]) {
@@ -249,6 +345,7 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
     });
 
     return () => {
+      marcadoresSublocalizacaoRef.current.forEach((marcador) => marcador.remove());
       map.remove();
       mapRef.current = null;
     };

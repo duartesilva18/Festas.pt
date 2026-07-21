@@ -1,6 +1,14 @@
 import type { EstadoTemporal } from "@/lib/eventos";
 
 export type ProgramaDia = { dia: string; eventos: { hora?: string; titulo: string }[] };
+export type SubLocalizacao = {
+  id: string;
+  nome: string;
+  tipo: "estacionamento" | "entrada" | "palco" | "after" | "bar" | "wc" | "primeiros_socorros" | "outro";
+  descricao: string | null;
+  lat: number;
+  lng: number;
+};
 
 export type FestaDetalhe = {
   nome: string;
@@ -22,11 +30,12 @@ export type FestaDetalhe = {
   cartazUrl: string | null;
   fotos: string[];
   fonteUrl: string | null;
+  subLocalizacoes: SubLocalizacao[];
 };
 
 // A localização PostGIS chega da API REST como EWKB hexadecimal.
 function parseEWKBPoint(hex: string | null): [number, number] | null {
-  if (!hex || hex.length < 42) return null;
+  if (!hex || hex.length < 42 || hex.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(hex)) return null;
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
   const view = new DataView(bytes.buffer);
@@ -34,7 +43,12 @@ function parseEWKBPoint(hex: string | null): [number, number] | null {
   const type = view.getUint32(1, le);
   const temSrid = (type & 0x20000000) !== 0;
   const offset = 5 + (temSrid ? 4 : 0);
-  return [view.getFloat64(offset, le), view.getFloat64(offset + 8, le)];
+  if (bytes.byteLength < offset + 16) return null;
+  const lng = view.getFloat64(offset, le);
+  const lat = view.getFloat64(offset + 8, le);
+  return Number.isFinite(lng) && Number.isFinite(lat) && Math.abs(lng) <= 180 && Math.abs(lat) <= 90
+    ? [lng, lat]
+    : null;
 }
 
 function estadoTemporal(inicio: string, fim: string | null): EstadoTemporal {
@@ -57,6 +71,7 @@ type LinhaEdicao = {
   cartaz_url: string | null;
   fotos: string[] | null;
   fonte_url: string | null;
+  edicoes_sublocalizacoes: { id: string; nome: string; tipo: SubLocalizacao["tipo"]; descricao: string | null; location: string }[] | null;
 };
 
 // Escolhe a edição mais relevante: a próxima confirmada; senão a mais recente.
@@ -83,7 +98,7 @@ export async function fetchFestaDetalhe(
   const select =
     "nome,slug,freguesia,descricao,categorias,location," +
     "concelhos!inner(nome,slug,distrito)," +
-    "edicoes(ano,data_inicio,data_fim,estado,programa,cartaz_url,fotos,fonte_url)";
+    "edicoes(ano,data_inicio,data_fim,estado,programa,cartaz_url,fotos,fonte_url,edicoes_sublocalizacoes(id,nome,tipo,descricao,location,ordem))";
   const query =
     `${url}/rest/v1/festas?slug=eq.${encodeURIComponent(slug)}` +
     `&concelhos.slug=eq.${encodeURIComponent(concelho)}` +
@@ -91,7 +106,7 @@ export async function fetchFestaDetalhe(
 
   const res = await fetch(query, {
     headers: { apikey: key, Authorization: `Bearer ${key}` },
-    next: { revalidate: 3600 },
+    cache: "no-store",
   });
   if (!res.ok) throw new Error(`Supabase respondeu ${res.status}`);
 
@@ -99,7 +114,7 @@ export async function fetchFestaDetalhe(
   const f = linhas?.[0];
   if (!f) return null;
 
-  const edicao = escolherEdicao(f.edicoes);
+  const edicao = escolherEdicao(Array.isArray(f.edicoes) ? f.edicoes : []);
   if (!edicao) return null;
 
   const ponto = parseEWKBPoint(f.location);
@@ -124,5 +139,11 @@ export async function fetchFestaDetalhe(
     cartazUrl: edicao.cartaz_url,
     fotos: Array.isArray(edicao.fotos) ? edicao.fotos : [],
     fonteUrl: edicao.fonte_url,
+    subLocalizacoes: (edicao.edicoes_sublocalizacoes ?? [])
+      .map((local) => {
+        const ponto = parseEWKBPoint(local.location);
+        return ponto ? { id: local.id, nome: local.nome, tipo: local.tipo, descricao: local.descricao, lng: ponto[0], lat: ponto[1] } : null;
+      })
+      .filter((local): local is SubLocalizacao => local !== null),
   };
 }
