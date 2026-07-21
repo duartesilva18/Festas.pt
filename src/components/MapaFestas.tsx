@@ -49,6 +49,7 @@ type DetalheExtra = {
   cartazUrl: string | null;
   fotos: string[];
   programa: ProgramaDia[] | null;
+  caracteristicas: string[];
   subLocalizacoes?: { id: string; nome: string; tipo: string; descricao: string | null; lat: number; lng: number }[];
 };
 
@@ -102,8 +103,32 @@ function normalizarDetalhe(valor: unknown): DetalheExtra | null {
     cartazUrl: typeof dados.cartazUrl === "string" ? dados.cartazUrl : null,
     fotos: Array.isArray(dados.fotos) ? dados.fotos.filter((foto): foto is string => typeof foto === "string" && Boolean(foto.trim())) : [],
     programa,
+    caracteristicas: Array.isArray(dados.caracteristicas)
+      ? dados.caracteristicas.filter((c): c is string => typeof c === "string" && Boolean(c.trim()))
+      : [],
     subLocalizacoes,
   };
+}
+
+// Associa cada característica a um ícone, por palavra-chave.
+function IconeCaracteristica({ nome }: { nome: string }) {
+  const t = nome.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const p = (d: string, sw = "1.8") => (
+    <svg className="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: d }} />
+  );
+  if (/(comida|petisco|gastronom|restaura|tasqu)/.test(t)) return p('<path d="M4 3v7a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M6 3v18M18 3c-1.7 0-3 2-3 5s1.3 4 3 4v9"/>');
+  if (/(bebida|bar|fino|cervej|vinho|sangria)/.test(t)) return p('<path d="M6 3h12l-1 7a5 5 0 0 1-10 0L6 3ZM12 15v6M8 21h8"/>');
+  if (/(musica|concerto|banda|dj|palco|som)/.test(t)) return p('<path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="2.5"/><circle cx="16" cy="16" r="2.5"/>');
+  if (/(fogo|artificio|pirotecn|foguete)/.test(t)) return p('<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/>');
+  if (/(prociss|religios|missa|igreja|santo|senhora)/.test(t)) return p('<path d="M12 2v6M9 5h6M6 22V11l6-3 6 3v11M6 22h12M10 22v-4h4v4"/>');
+  if (/(feira|artesan|mercad)/.test(t)) return p('<path d="M3 9l1-5h16l1 5M4 9v11h16V9M4 9h16M9 13h6"/>');
+  if (/(cortejo|desfile|marcha|gigant|rusga|folclor|etnograf)/.test(t)) return p('<circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="17" cy="8" r="2"/><path d="M21 21v-1a3 3 0 0 0-2-2.8"/>');
+  if (/(gratuit|gratis|entrada livre)/.test(t)) return p('<path d="M3 8h18v8H3zM3 12h18M7 12v4M17 8v4"/>');
+  if (/(familia|crianc|infantil)/.test(t)) return p('<circle cx="7" cy="6" r="2.5"/><circle cx="17" cy="6" r="2.5"/><path d="M4 21v-3a3 3 0 0 1 3-3M20 21v-3a3 3 0 0 0-3-3M12 12v9M9 16h6"/>');
+  if (/(estacion|parque)/.test(t)) return p('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 17V8h3.5a2.5 2.5 0 0 1 0 5H9"/>');
+  if (/(praia|mar|maritim|rio|agua)/.test(t)) return p('<path d="M3 14c1.5 0 1.5-1.5 3-1.5s1.5 1.5 3 1.5 1.5-1.5 3-1.5 1.5 1.5 3 1.5 1.5-1.5 3-1.5M3 19c1.5 0 1.5-1.5 3-1.5s1.5 1.5 3 1.5 1.5-1.5 3-1.5 1.5 1.5 3 1.5 1.5-1.5 3-1.5"/>');
+  if (/(acess|cadeira de rodas|mobilidade)/.test(t)) return p('<circle cx="12" cy="4" r="2"/><path d="M12 6v7h5l2 5M12 9l-3 1a4 4 0 1 0 4 6"/>');
+  return p('<path d="M20 6 9 17l-5-5"/>', "2.2");
 }
 
 function IconeSublocalizacao({ tipo }: { tipo: string }) {
@@ -248,6 +273,7 @@ function DetalheFesta({
     (local) => Number.isFinite(local.lat) && Number.isFinite(local.lng) && local.nome.trim().length > 0,
   );
   const descricao = extra?.descricao;
+  const caracteristicas = extra?.caracteristicas ?? [];
   const abrirDirecoes = () => {
     const destino = `${lat},${lng}`;
     const telemovel = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -502,11 +528,44 @@ function DetalheFesta({
         )}
 
         {aba === "acerca" && (
-          <section className="space-y-4">
-            <h3 className="text-sm font-bold text-[#102745]">Acerca de {p.nome}</h3>
-            <div className="flex gap-3 text-sm text-[#1A2E4F]/75"><svg className="mt-0.5 shrink-0 text-[#007c91]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg><span>{p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho}, {p.distrito}</span></div>
-            <div className="flex gap-3 text-sm text-[#1A2E4F]/75"><svg className="mt-0.5 shrink-0 text-[#007c91]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></svg><span>{formatarDatas(p.data_inicio, p.data_fim)} de {p.ano}</span></div>
-            {descricao && <p className="border-t border-[#1A2E4F]/10 pt-4 text-sm leading-relaxed text-[#1A2E4F]/75">{descricao}</p>}
+          <section className="space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-[#102745]">Acerca de {p.nome}</h3>
+              {descricao ? (
+                <p className="mt-2 text-[13px] leading-relaxed text-[#1A2E4F]/75">{descricao}</p>
+              ) : (
+                <p className="mt-2 text-[13px] leading-relaxed text-[#1A2E4F]/55">Sem descrição disponível para esta festa.</p>
+              )}
+            </div>
+
+            {caracteristicas.length > 0 && (
+              <div className="border-t border-[#1A2E4F]/10 pt-4">
+                <h4 className="text-xs font-bold uppercase tracking-wide text-[#1A2E4F]/45">O que vais encontrar</h4>
+                <ul className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2.5 sm:grid-cols-2">
+                  {caracteristicas.map((c) => (
+                    <li key={c} className="flex items-center gap-2.5 text-[13px] text-[#1A2E4F]/80">
+                      <span className="shrink-0 text-[#20856D]"><IconeCaracteristica nome={c} /></span>
+                      <span className="leading-snug">{c}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <dl className="space-y-3 border-t border-[#1A2E4F]/10 pt-4">
+              <div className="flex gap-3">
+                <dt className="mt-0.5 shrink-0 text-[#007c91]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg></dt>
+                <dd className="text-sm text-[#1A2E4F]/80"><span className="font-semibold text-[#102745]">Onde</span><br />{p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho}, {p.distrito}</dd>
+              </div>
+              <div className="flex gap-3">
+                <dt className="mt-0.5 shrink-0 text-[#007c91]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></svg></dt>
+                <dd className="text-sm text-[#1A2E4F]/80"><span className="font-semibold text-[#102745]">Quando</span><br />{formatarDatas(p.data_inicio, p.data_fim)} de {p.ano}</dd>
+              </div>
+              <div className="flex gap-3">
+                <dt className="mt-0.5 shrink-0 text-[#007c91]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l10-2v13" /><circle cx="6" cy="18" r="2" /><circle cx="16" cy="16" r="2" /></svg></dt>
+                <dd className="text-sm text-[#1A2E4F]/80"><span className="font-semibold text-[#102745]">Tipo</span><br /><span className="capitalize">{p.categorias?.length ? p.categorias.join(", ") : "Festa popular"}</span></dd>
+              </div>
+            </dl>
           </section>
         )}
 

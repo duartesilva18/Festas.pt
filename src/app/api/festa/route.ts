@@ -22,6 +22,7 @@ export async function GET(req: Request) {
         cartazUrl: festa.cartazUrl,
         fotos: festa.fotos,
         programa: festa.programa,
+        caracteristicas: festa.caracteristicas,
         subLocalizacoes: festa.subLocalizacoes,
       },
       { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } },

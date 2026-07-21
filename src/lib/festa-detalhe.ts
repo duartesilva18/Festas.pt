@@ -30,6 +30,7 @@ export type FestaDetalhe = {
   programa: ProgramaDia[] | null;
   cartazUrl: string | null;
   fotos: string[];
+  caracteristicas: string[];
   fonteUrl: string | null;
   subLocalizacoes: SubLocalizacao[];
 };
@@ -71,6 +72,7 @@ type LinhaEdicao = {
   programa: ProgramaDia[] | null;
   cartaz_url: string | null;
   fotos: string[] | null;
+  caracteristicas: string[] | null;
   fonte_url: string | null;
   edicoes_sublocalizacoes: { id: string; nome: string; tipo: SubLocalizacao["tipo"]; descricao: string | null; location: string }[] | null;
 };
@@ -99,7 +101,7 @@ export const fetchFestaDetalhe = cache(async function fetchFestaDetalhe(
   const select =
     "nome,slug,freguesia,descricao,categorias,location," +
     "concelhos!inner(nome,slug,distrito)," +
-    "edicoes(ano,data_inicio,data_fim,estado,programa,cartaz_url,fotos,fonte_url,edicoes_sublocalizacoes(id,nome,tipo,descricao,location,ordem))";
+    "edicoes(ano,data_inicio,data_fim,estado,programa,cartaz_url,fotos,caracteristicas,fonte_url,edicoes_sublocalizacoes(id,nome,tipo,descricao,location,ordem))";
   const query =
     `${url}/rest/v1/festas?slug=eq.${encodeURIComponent(slug)}` +
     `&concelhos.slug=eq.${encodeURIComponent(concelho)}` +
@@ -139,6 +141,9 @@ export const fetchFestaDetalhe = cache(async function fetchFestaDetalhe(
     programa: edicao.programa,
     cartazUrl: edicao.cartaz_url,
     fotos: Array.isArray(edicao.fotos) ? edicao.fotos : [],
+    caracteristicas: Array.isArray(edicao.caracteristicas)
+      ? edicao.caracteristicas.filter((c): c is string => typeof c === "string" && Boolean(c.trim()))
+      : [],
     fonteUrl: edicao.fonte_url,
     subLocalizacoes: (edicao.edicoes_sublocalizacoes ?? [])
       .map((local) => {
