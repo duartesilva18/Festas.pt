@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import BotaoVoltar from "@/components/BotaoVoltar";
 import Navbar from "@/components/Navbar";
 import { fetchFestaDetalhe, type FestaDetalhe } from "@/lib/festa-detalhe";
 import { CORES, ETIQUETAS } from "@/lib/festa-ui";
@@ -128,9 +129,12 @@ export default async function PaginaFesta({ params }: Params) {
           ))}
         </div>
 
-        <h1 className="mt-3 max-w-3xl text-[28px] font-bold leading-[1.15] tracking-tight sm:text-[38px]">
-          {festa.nome}
-        </h1>
+        <div className="mt-3 flex items-start gap-3">
+          <BotaoVoltar className="mt-1.5" />
+          <h1 className="max-w-3xl text-[28px] font-bold leading-[1.15] tracking-tight sm:text-[38px]">
+            {festa.nome}
+          </h1>
+        </div>
         <p className="mt-2 flex items-center gap-1.5 text-[15px] text-[#1A2E4F]/60">
           <span className="text-[#EC2456]"><Icone d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z M12 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" /></span>
           {local}
