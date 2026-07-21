@@ -116,6 +116,10 @@ export async function fetchFestaDetalhe(
 
   const ponto = parseEWKBPoint(f.location);
 
+  // MOCK TEMPORÁRIO: enquanto o Supabase não tem cartaz/fotos/programa reais,
+  // preenche a festa "feiras-novas" para pré-visualização. Remover depois.
+  const mock = MOCK_DEMO[f.slug];
+
   return {
     nome: repararTexto(f.nome)!,
     slug: f.slug,
@@ -132,10 +136,56 @@ export async function fetchFestaDetalhe(
     dataFim: edicao.data_fim,
     estado: edicao.estado,
     estadoTemporal: estadoTemporal(edicao.data_inicio, edicao.data_fim),
-    programa: edicao.programa,
-    cartazUrl: edicao.cartaz_url,
+    programa: edicao.programa ?? mock?.programa ?? null,
+    cartazUrl: edicao.cartaz_url ?? mock?.cartazUrl ?? null,
     // TODO: coluna `fotos text[]` a adicionar em edicoes quando o Supabase reconectar.
-    fotos: Array.isArray(edicao.fotos) ? edicao.fotos : [],
+    fotos: Array.isArray(edicao.fotos) ? edicao.fotos : (mock?.fotos ?? []),
     fonteUrl: edicao.fonte_url,
   };
 }
+
+// MOCK TEMPORÁRIO de pré-visualização (imagens do Lorem Picsum). Remover
+// quando houver dados reais no Supabase.
+const MOCK_DEMO: Record<
+  string,
+  { cartazUrl: string; fotos: string[]; programa: ProgramaDia[] }
+> = {
+  "feiras-novas": {
+    cartazUrl: "https://picsum.photos/seed/achafestas-cartaz/600/800",
+    fotos: [
+      "https://picsum.photos/seed/af1/800/600",
+      "https://picsum.photos/seed/af2/800/600",
+      "https://picsum.photos/seed/af3/800/600",
+      "https://picsum.photos/seed/af4/800/600",
+      "https://picsum.photos/seed/af5/800/600",
+      "https://picsum.photos/seed/af6/800/600",
+    ],
+    programa: [
+      {
+        dia: "Sexta, 4 de setembro",
+        eventos: [
+          { hora: "18:00", titulo: "Abertura oficial e pregão das Feiras Novas" },
+          { hora: "21:30", titulo: "Concerto de abertura no palco principal" },
+          { hora: "23:30", titulo: "Noite de DJ na Praça da República" },
+        ],
+      },
+      {
+        dia: "Sábado, 5 de setembro",
+        eventos: [
+          { hora: "10:00", titulo: "Feira de artesanato e produtos regionais" },
+          { hora: "16:00", titulo: "Grupos folclóricos e bombos" },
+          { hora: "22:00", titulo: "Cabeça de cartaz" },
+          { hora: "00:00", titulo: "Grande sessão de fogo de artifício sobre o rio Lima" },
+        ],
+      },
+      {
+        dia: "Domingo, 6 de setembro",
+        eventos: [
+          { hora: "11:00", titulo: "Missa solene e procissão" },
+          { hora: "15:00", titulo: "Desfile de gigantones e cabeçudos" },
+          { hora: "18:00", titulo: "Rusgas pelas ruas da vila" },
+        ],
+      },
+    ],
+  },
+};
