@@ -28,7 +28,7 @@ export default function Navbar({ contagem }: { contagem?: number }) {
 
           <CampoPesquisa className="mx-auto hidden min-w-0 max-w-md flex-1 md:flex" />
 
-          <nav className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <nav className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
             {contagem != null && (
               <span className="hidden items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-[#1A2E4F]/70 lg:flex">
                 <span className="relative flex size-2">
