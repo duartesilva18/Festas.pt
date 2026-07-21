@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
@@ -14,13 +14,13 @@ export type Utilizador = {
 type AuthContexto = {
   utilizador: Utilizador | null;
   aCarregar: boolean;
+  papel: string | null;
   favoritos: Set<string>;
   guardado: (festaId: string) => boolean;
   alternar: (festaId: string) => void;
   entrarComGoogle: () => void;
   terminarSessao: () => Promise<void>;
   pedirLogin: () => void;
-  loginPedido: number;
 };
 
 const Contexto = createContext<AuthContexto | null>(null);
@@ -41,14 +41,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [utilizador, setUtilizador] = useState<Utilizador | null>(null);
   const [aCarregar, setACarregar] = useState(true);
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set());
-  const [loginPedido, setLoginPedido] = useState(0);
+  const [papel, setPapel] = useState<string | null>(null);
   const [promptAberto, setPromptAberto] = useState(false);
-  const utilizadorRef = useRef<Utilizador | null>(null);
-  utilizadorRef.current = utilizador;
-
-  useEffect(() => {
-    if (loginPedido > 0) setPromptAberto(true);
-  }, [loginPedido]);
 
   useEffect(() => {
     if (!promptAberto) return;
@@ -71,21 +65,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [supabase],
   );
 
+  const carregarPapel = useCallback(
+    async (id: string | null) => {
+      if (!id) {
+        setPapel(null);
+        return;
+      }
+      const { data } = await supabase.from("perfis").select("papel").eq("id", id).single();
+      setPapel((data as { papel: string } | null)?.papel ?? null);
+    },
+    [supabase],
+  );
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       const u = paraUtilizador(data.user);
       setUtilizador(u);
       setACarregar(false);
       void carregarFavoritos(u?.id ?? null);
+      void carregarPapel(u?.id ?? null);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_evento, sessao) => {
       const u = paraUtilizador(sessao?.user ?? null);
       setUtilizador(u);
       void carregarFavoritos(u?.id ?? null);
+      void carregarPapel(u?.id ?? null);
     });
     return () => sub.subscription.unsubscribe();
-  }, [supabase, carregarFavoritos]);
+  }, [supabase, carregarFavoritos, carregarPapel]);
 
   const entrarComGoogle = useCallback(() => {
     void supabase.auth.signInWithOAuth({
@@ -98,17 +106,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     setUtilizador(null);
     setFavoritos(new Set());
+    setPapel(null);
   }, [supabase]);
 
-  const pedirLogin = useCallback(() => setLoginPedido((n) => n + 1), []);
+  const pedirLogin = useCallback(() => setPromptAberto(true), []);
 
   const guardado = useCallback((festaId: string) => favoritos.has(festaId), [favoritos]);
 
   const alternar = useCallback(
     (festaId: string) => {
-      const u = utilizadorRef.current;
+      const u = utilizador;
       if (!u) {
-        setLoginPedido((n) => n + 1);
+        setPromptAberto(true);
         return;
       }
       const jaGuardado = favoritos.has(festaId);
@@ -126,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error) void carregarFavoritos(u.id); // reverte para o estado real
       });
     },
-    [favoritos, supabase, carregarFavoritos],
+    [utilizador, favoritos, supabase, carregarFavoritos],
   );
 
   return (
@@ -134,13 +143,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         utilizador,
         aCarregar,
+        papel,
         favoritos,
         guardado,
         alternar,
         entrarComGoogle,
         terminarSessao,
         pedirLogin,
-        loginPedido,
       }}
     >
       {children}

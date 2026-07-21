@@ -123,7 +123,7 @@ function primeiroUltimoNome(nome: string | null, email: string | null) {
 }
 
 function MenuUtilizador() {
-  const { utilizador, aCarregar, entrarComGoogle, terminarSessao } = useAuth();
+  const { utilizador, aCarregar, papel, entrarComGoogle, terminarSessao } = useAuth();
   const [aberto, setAberto] = useState(false);
   const [semFoto, setSemFoto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -192,6 +192,16 @@ function MenuUtilizador() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></svg>
             Perfil
           </Link>
+          {papel === "admin" && (
+            <Link
+              href="/admin/criticas"
+              onClick={() => setAberto(false)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#EC2456]/[0.06] hover:text-[#EC2456]"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 4 6v6c0 4.4 3.4 8.4 8 9 4.6-.6 8-4.6 8-9V6l-8-3z" /><path d="m9 12 2 2 4-4" /></svg>
+              Moderação
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => { setAberto(false); void terminarSessao(); }}

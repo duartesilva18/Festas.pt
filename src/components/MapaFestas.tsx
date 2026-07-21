@@ -156,7 +156,8 @@ function quandoCritica(data: string) {
   return `há ${meses} mês${meses === 1 ? "" : "es"}`;
 }
 
-function FormularioCritica({ festaId, aoFechar }: { festaId: string; aoFechar: () => void }) {
+function FormularioCritica({ festaId, aoFechar, aoPublicar }: { festaId: string; aoFechar: () => void; aoPublicar: (critica: CriticaPublica) => void }) {
+  const { utilizador } = useAuth();
   const [nome, setNome] = useState("");
   const [nota, setNota] = useState(0);
   const [notaHover, setNotaHover] = useState(0);
@@ -164,10 +165,17 @@ function FormularioCritica({ festaId, aoFechar }: { festaId: string; aoFechar: (
   const [website, setWebsite] = useState("");
   const [erro, setErro] = useState("");
   const [enviada, setEnviada] = useState(false);
+  const [estadoEnvio, setEstadoEnvio] = useState<"pendente" | "aprovada" | null>(null);
   const [aEnviar, setAEnviar] = useState(false);
   const [inicioFormulario] = useState(() => Date.now());
   const avaliacaoAtiva = notaHover || nota;
   const etiquetasNota = ["", "Muito fraco", "Fraco", "Razoável", "Bom", "Excelente"];
+
+  useEffect(() => {
+    if (!enviada) return;
+    const temporizador = window.setTimeout(aoFechar, 2_000);
+    return () => window.clearTimeout(temporizador);
+  }, [enviada, aoFechar]);
 
   const enviar = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -192,6 +200,9 @@ function FormularioCritica({ festaId, aoFechar }: { festaId: string; aoFechar: (
       });
       const dados = await resposta.json().catch(() => null);
       if (!resposta.ok) throw new Error(dados?.error ?? "Não foi possível enviar a crítica.");
+      const aprovada = dados?.estado === "aprovada";
+      setEstadoEnvio(aprovada ? "aprovada" : "pendente");
+      if (aprovada && dados?.critica && typeof dados.critica.id === "string") aoPublicar(dados.critica as CriticaPublica);
       setEnviada(true);
     } catch (causa) {
       setErro(causa instanceof Error ? causa.message : "Não foi possível enviar a crítica.");
@@ -200,17 +211,17 @@ function FormularioCritica({ festaId, aoFechar }: { festaId: string; aoFechar: (
     }
   };
 
-  if (enviada) return <div className="mt-4 rounded-xl border border-[#20856D]/20 bg-[#20856D]/[0.05] p-4"><p className="text-sm font-bold text-[#102745]">Obrigado pela tua crítica.</p><p className="mt-1 text-xs leading-relaxed text-[#1A2E4F]/65">Foi enviada para validação e aparecerá publicamente depois de aprovada.</p><button type="button" onClick={aoFechar} className="mt-3 text-xs font-bold text-[#20856D]">Fechar</button></div>;
+  if (enviada) return <div role="status" className="mt-3 flex items-center gap-2 rounded-lg border border-[#20856D]/20 bg-[#20856D]/[0.05] px-3 py-2.5 text-xs text-[#1A2E4F]/70"><svg className="size-4 shrink-0 text-[#20856D]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m5 12 4 4L19 6" /></svg><span>{estadoEnvio === "aprovada" ? "Crítica publicada." : "Crítica enviada para validação."}</span></div>;
 
   return <form onSubmit={enviar} className="mt-4 rounded-xl border border-[#EC2456]/20 bg-[#fff8fa] p-4">
-    <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-[#102745]">Partilha a tua experiência</p><p className="mt-0.5 text-[11px] leading-relaxed text-[#1A2E4F]/60">Não precisas de conta. A crítica é revista antes de ficar pública.</p></div><button type="button" onClick={aoFechar} className="text-xs font-bold text-[#1A2E4F]/55 hover:text-[#EC2456]">Cancelar</button></div>
+    <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-[#102745]">Partilha a tua experiência</p><p className="mt-0.5 text-[11px] leading-relaxed text-[#1A2E4F]/60">{utilizador ? "Com uma sessão Google válida, a crítica é publicada logo." : "Não precisas de conta; nesse caso a crítica é revista antes de ficar pública."}</p></div><button type="button" onClick={aoFechar} className="text-xs font-bold text-[#1A2E4F]/55 hover:text-[#EC2456]">Cancelar</button></div>
     <fieldset className="mt-4"><legend className="text-xs font-semibold text-[#1A2E4F]/75">A tua avaliação</legend><div onMouseLeave={() => setNotaHover(0)} role="radiogroup" aria-label="Avaliação de uma a cinco estrelas" className="mt-1.5 flex items-center gap-1"><div className="flex gap-1">{[1, 2, 3, 4, 5].map((estrela) => <button key={estrela} type="button" role="radio" onMouseEnter={() => setNotaHover(estrela)} onFocus={() => setNotaHover(estrela)} onBlur={() => setNotaHover(0)} onKeyDown={(event) => { if (event.key === "ArrowRight" || event.key === "ArrowUp") { event.preventDefault(); setNota(Math.min(5, estrela + 1)); } if (event.key === "ArrowLeft" || event.key === "ArrowDown") { event.preventDefault(); setNota(Math.max(1, estrela - 1)); } }} onClick={() => setNota(estrela)} aria-label={`${estrela} estrela${estrela > 1 ? "s" : ""}`} aria-checked={nota === estrela} className={`text-2xl leading-none transition duration-150 hover:scale-110 focus-visible:scale-110 focus-visible:outline-none ${estrela <= avaliacaoAtiva ? "text-[#F97B16]" : "text-[#1A2E4F]/15"}`}>★</button>)}</div><span aria-live="polite" className={`ml-2 text-xs font-semibold transition ${avaliacaoAtiva ? "text-[#F97B16]" : "text-[#1A2E4F]/40"}`}>{avaliacaoAtiva ? etiquetasNota[avaliacaoAtiva] : "Escolhe uma nota"}</span></div></fieldset>
-    <label className="mt-4 block text-xs font-semibold text-[#1A2E4F]/75">Nome <span className="font-normal text-[#1A2E4F]/45">(opcional)</span><input value={nome} onChange={(event) => setNome(event.target.value)} maxLength={60} autoComplete="name" placeholder="Como queres aparecer" className="mt-1.5 w-full rounded-lg border border-[#1A2E4F]/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-[#EC2456]" /></label>
+    {utilizador ? <p className="mt-4 rounded-lg bg-white px-3 py-2.5 text-xs text-[#1A2E4F]/70">A publicar como <span className="font-semibold text-[#102745]">{utilizador.nome || utilizador.email || "utilizador Google"}</span>.</p> : <label className="mt-4 block text-xs font-semibold text-[#1A2E4F]/75">Nome <span className="font-normal text-[#1A2E4F]/45">(opcional)</span><input value={nome} onChange={(event) => setNome(event.target.value)} maxLength={60} autoComplete="name" placeholder="Como queres aparecer" className="mt-1.5 w-full rounded-lg border border-[#1A2E4F]/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-[#EC2456]" /></label>}
     <label className="mt-3 block text-xs font-semibold text-[#1A2E4F]/75">A tua crítica<textarea value={texto} onChange={(event) => setTexto(event.target.value)} maxLength={1200} required className="mt-1.5 min-h-24 w-full resize-none rounded-lg border border-[#1A2E4F]/15 bg-white p-3 text-sm font-normal outline-none transition focus:border-[#EC2456]" placeholder="O que gostaste e o que podia melhorar?" /></label>
     <input name="website" value={website} onChange={(event) => setWebsite(event.target.value)} tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
     <div className="mt-1 flex justify-between text-[11px] text-[#1A2E4F]/45"><span>Mínimo de 20 caracteres</span><span>{texto.length}/1200</span></div>
     {erro && <p role="alert" className="mt-3 text-xs font-semibold text-[#c43d4b]">{erro}</p>}
-    <button type="submit" disabled={aEnviar} className="mt-4 w-full rounded-lg bg-[#EC2456] py-2.5 text-sm font-bold text-white transition hover:bg-[#d11a47] disabled:cursor-wait disabled:opacity-60">{aEnviar ? "A enviar…" : "Enviar para validação"}</button>
+    <button type="submit" disabled={aEnviar} className="mt-4 w-full rounded-lg bg-[#EC2456] py-2.5 text-sm font-bold text-white transition hover:bg-[#d11a47] disabled:cursor-wait disabled:opacity-60">{aEnviar ? "A enviar…" : utilizador ? "Publicar crítica" : "Enviar para validação"}</button>
   </form>;
 }
 
@@ -322,7 +333,7 @@ function DetalheFesta({
           </div>
         )}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#102745]/80 via-[#102745]/25 to-transparent px-4 pb-3 pt-8 text-white">
-          <h2 className="truncate pr-24 text-lg font-bold leading-tight drop-shadow-sm">{p.nome}</h2>
+          <div className="flex items-center gap-2 pr-14"><h2 className="min-w-0 truncate text-lg font-bold leading-tight drop-shadow-sm">{p.nome}</h2>{typeof p.media_criticas === "number" && p.total_criticas > 0 && <span className="shrink-0 text-xs font-bold text-[#FFD166] drop-shadow-sm">{p.media_criticas.toFixed(1).replace(".", ",")} ★</span>}</div>
           <p className="mt-0.5 truncate pr-24 text-xs text-white/80">{p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho} · {p.distrito}</p>
           <div className="mt-2 flex flex-wrap items-center gap-1.5 pr-20 text-[11px] font-semibold">
             <span className="text-white">{formatarDatas(p.data_inicio, p.data_fim)} · {p.ano}</span>
@@ -503,12 +514,12 @@ function DetalheFesta({
                 <h3 className="text-base font-bold text-[#102745]">Críticas</h3>
                 <p className="mt-0.5 text-xs text-[#1A2E4F]/55">Experiências de quem já participou</p>
               </div>
-              <button type="button" onClick={() => setFormularioCritica((aberto) => !aberto)} className="shrink-0 rounded-md bg-[#EC2456] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#d11a47]">
+              <button type="button" onClick={() => { setFormularioCritica((aberto) => !aberto); requestAnimationFrame(() => conteudoRef.current?.scrollTo({ top: 0, behavior: "smooth" })); }} className="shrink-0 rounded-md bg-[#EC2456] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#d11a47]">
                 {formularioCritica ? "Fechar" : "Escrever crítica"}
               </button>
             </div>
 
-            {formularioCritica && <FormularioCritica festaId={p.id} aoFechar={() => setFormularioCritica(false)} />}
+            {formularioCritica && <FormularioCritica festaId={p.id} aoFechar={() => setFormularioCritica(false)} aoPublicar={(critica) => setCriticas((atuais) => atuais.some((atual) => atual.id === critica.id) ? atuais : [critica, ...atuais])} />}
 
             <div className="mt-5 grid grid-cols-[1fr_auto] items-center gap-5 border-y border-[#1A2E4F]/10 py-4">
               <div className="space-y-1.5">
@@ -693,7 +704,7 @@ function ListaFestas({
                   )}
                 </div>
                 <div className="p-3">
-                  <span className="block truncate text-sm font-bold text-[#1A2E4F]">{p.nome}</span>
+                  <div className="flex items-center justify-between gap-2"><span className="min-w-0 truncate text-sm font-bold text-[#1A2E4F]">{p.nome}</span>{typeof p.media_criticas === "number" && p.total_criticas > 0 && <span className="shrink-0 text-xs font-bold text-[#F97B16]">{p.media_criticas.toFixed(1).replace(".", ",")} ★</span>}</div>
                   <span className="mt-0.5 flex items-center gap-1 truncate text-xs text-[#1A2E4F]/60">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EC2456" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg>
                     {p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho} · {p.distrito}
@@ -743,7 +754,7 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
     navigator.geolocation.getCurrentPosition(
       (pos) => setMinhaLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       () => {},
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300_000 },
     );
   }, []);
 
@@ -751,8 +762,6 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
     const pedido = pedidoDetalheRef.current + 1;
     pedidoDetalheRef.current = pedido;
     setACarregarDetalhe(festa.props.id);
-    pedirLocalizacao();
-
     const chave = `${festa.props.concelho_slug}/${festa.props.slug}`;
     const emCache = detalhesEmCache.current.get(chave);
     let detalhe: DetalheExtra | null = emCache && emCache.expiraEm > Date.now() ? emCache.valor : null;
@@ -770,7 +779,7 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
     setACarregarDetalhe(null);
     setAFechar(false);
     setPainel({ modo: "detalhe", festa, deLista, detalhe });
-  }, [pedirLocalizacao]);
+  }, []);
 
   useEffect(() => {
     if (painel.modo === "detalhe") mapaRef.current?.focarFesta(painel.festa.lngLat);
@@ -827,7 +836,6 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
 
   function abrir(novo: Painel) {
     setAFechar(false);
-    pedirLocalizacao();
     setPainel(novo);
   }
 

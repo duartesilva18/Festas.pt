@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -70,10 +71,12 @@ export async function POST(req: Request) {
   const nome = textoLimpo(corpo.nome, 60);
   const texto = textoLimpo(corpo.texto, 1200);
   const nota = typeof corpo.nota === "number" ? corpo.nota : 0;
-  const tempoPreenchimento = typeof corpo.tempoPreenchimento === "number" ? corpo.tempoPreenchimento : 0;
   const pareceHtml = /<\/?[a-z][\s\S]*>/i.test(texto);
   const urls = texto.match(/https?:\/\//gi)?.length ?? 0;
   const repeticaoExcessiva = /(.)\1{14,}/u.test(texto);
+  if (repeticaoExcessiva) {
+    return NextResponse.json({ error: "Escreve uma opinião com palavras, não apenas caracteres repetidos." }, { status: 400 });
+  }
   if (
     !UUID.test(festaId) ||
     !Number.isInteger(nota) ||
@@ -82,11 +85,8 @@ export async function POST(req: Request) {
     texto.length < 20 ||
     texto.length > 1200 ||
     (nome.length > 0 && nome.length < 2) ||
-    tempoPreenchimento < 1500 ||
-    tempoPreenchimento > 2 * 60 * 60 * 1000 ||
     pareceHtml ||
-    urls > 2 ||
-    repeticaoExcessiva
+    urls > 2
   ) {
     return NextResponse.json({ error: "Confirma a avaliação e escreve uma crítica válida." }, { status: 400 });
   }
@@ -101,6 +101,15 @@ export async function POST(req: Request) {
   // IP nunca é guardado: apenas um HMAC impossível de reverter sem a chave de servidor.
   const ipHash = createHmac("sha256", serviceKey).update(ip).digest("hex");
 
+  // A identidade vem sempre da sessão validada pelo Auth, nunca do corpo do pedido.
+  const supabase = await supabaseServer();
+  const { data: { user } } = await supabase.auth.getUser();
+  const entrouComGoogle = user?.app_metadata?.provider === "google";
+  const nomeGoogle = entrouComGoogle
+    ? textoLimpo(user.user_metadata?.full_name ?? user.user_metadata?.name, 60) || null
+    : null;
+  const estado = entrouComGoogle ? "aprovada" : "pendente";
+
   const resposta = await fetch(`${url}/rest/v1/rpc/submeter_critica`, {
     method: "POST",
     headers: {
@@ -110,10 +119,12 @@ export async function POST(req: Request) {
     },
     body: JSON.stringify({
       p_festa_id: festaId,
-      p_autor_nome: nome || null,
+      p_autor_nome: (nomeGoogle ?? nome) || null,
       p_nota: nota,
       p_texto: texto,
       p_ip_hash: ipHash,
+      p_autor_id: entrouComGoogle ? user?.id ?? null : null,
+      p_estado: estado,
     }),
     cache: "no-store",
   });
@@ -122,11 +133,18 @@ export async function POST(req: Request) {
     if (detalhe.includes("RATE_LIMIT")) {
       return NextResponse.json({ error: "Já enviaste várias críticas hoje. Tenta novamente amanhã." }, { status: 429 });
     }
+    if (detalhe.includes("JA_AVALIOU")) {
+      return NextResponse.json({ error: "Já deixaste uma crítica nesta festa." }, { status: 409 });
+    }
     if (detalhe.includes("DUPLICADA")) {
       return NextResponse.json({ error: "Já recebemos esta crítica. Obrigado." }, { status: 409 });
     }
     return NextResponse.json({ error: "Não foi possível enviar a crítica. Tenta novamente." }, { status: 502 });
   }
 
-  return NextResponse.json({ ok: true }, { status: 201 });
+  const id = await resposta.json().catch(() => null);
+  const critica = estado === "aprovada" && typeof id === "string"
+    ? { id, autor_nome: nomeGoogle, nota, texto, created_at: new Date().toISOString() }
+    : null;
+  return NextResponse.json({ ok: true, estado, critica }, { status: 201 });
 }

@@ -227,14 +227,6 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
-    map.addControl(
-      new maplibregl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: false,
-      }),
-      "bottom-right",
-    );
-
     map.on("load", async () => {
       await Promise.all([
         carregarPin(map, "pin-a-decorrer", CORES.a_decorrer),

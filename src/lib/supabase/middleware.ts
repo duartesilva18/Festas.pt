@@ -24,6 +24,6 @@ export async function atualizarSessao(request: NextRequest) {
     },
   );
 
-  await supabase.auth.getUser();
+  await supabase.auth.getClaims();
   return resposta;
 }

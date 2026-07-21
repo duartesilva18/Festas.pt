@@ -16,6 +16,8 @@ export type FestaMapa = {
   data_fim: string | null;
   estado: string;
   cartaz_url: string | null;
+  media_criticas: number | null;
+  total_criticas: number;
 };
 
 export type FestaFeature = GeoJSON.Feature<
@@ -43,7 +45,7 @@ export async function fetchFestasGeoJSON(): Promise<FestasGeoJSON> {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error("Variáveis NEXT_PUBLIC_SUPABASE_* em falta");
 
-  const campos = "id,slug,nome,freguesia,categorias,concelho,concelho_slug,distrito,lng,lat,ano,data_inicio,data_fim,estado,cartaz_url";
+  const campos = "id,slug,nome,freguesia,categorias,concelho,concelho_slug,distrito,lng,lat,ano,data_inicio,data_fim,estado,cartaz_url,media_criticas,total_criticas";
   const res = await fetch(`${url}/rest/v1/festas_mapa?select=${campos}&order=data_inicio`, {
     headers: { apikey: key, Authorization: `Bearer ${key}` },
     next: { revalidate: 300 },
