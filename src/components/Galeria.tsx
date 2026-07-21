@@ -30,6 +30,8 @@ export default function Galeria({
             <img
               src={foto}
               alt={`Foto ${i + 1}`}
+              loading="lazy"
+              decoding="async"
               className={`${aspecto} w-full cursor-zoom-in object-cover transition duration-300 group-hover:scale-105`}
             />
           </button>

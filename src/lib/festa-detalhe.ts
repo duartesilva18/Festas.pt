@@ -107,7 +107,7 @@ export const fetchFestaDetalhe = cache(async function fetchFestaDetalhe(
 
   const res = await fetch(query, {
     headers: { apikey: key, Authorization: `Bearer ${key}` },
-    cache: "no-store",
+    next: { revalidate: 3600 },
   });
   if (!res.ok) throw new Error(`Supabase respondeu ${res.status}`);
 

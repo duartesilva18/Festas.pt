@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 export type OpcaoPesquisa = { id: string; nome: string; localizacao: string; cartazUrl: string | null };
 const CHAVE_PESQUISAS_RECENTES = "achafestas:pesquisas-recentes";
@@ -27,9 +27,16 @@ function CampoPesquisa({ className = "", opcoes = [] }: { className?: string; op
   const [aberto, setAberto] = useState(false);
   const [recentes, setRecentes] = useState<OpcaoPesquisa[]>(() => lerPesquisasRecentes(opcoes));
   const consulta = normalizarPesquisa(termo.trim());
-  const sugestoes = consulta.length >= 2
-    ? opcoes.filter((opcao) => normalizarPesquisa(`${opcao.nome} ${opcao.localizacao}`).includes(consulta)).slice(0, 6)
-    : [];
+  const opcoesIndexadas = useMemo(
+    () => opcoes.map((opcao) => ({ opcao, pesquisa: normalizarPesquisa(`${opcao.nome} ${opcao.localizacao}`) })),
+    [opcoes],
+  );
+  const sugestoes = useMemo(
+    () => consulta.length >= 2
+      ? opcoesIndexadas.filter(({ pesquisa }) => pesquisa.includes(consulta)).slice(0, 6).map(({ opcao }) => opcao)
+      : [],
+    [consulta, opcoesIndexadas],
+  );
 
   const guardarRecente = (opcao: OpcaoPesquisa) => {
     const proximos = [opcao, ...recentes.filter((recente) => recente.id !== opcao.id)].slice(0, 5);
@@ -88,7 +95,7 @@ function CampoPesquisa({ className = "", opcoes = [] }: { className?: string; op
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg>
                   {opcao.cartazUrl && <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={opcao.cartazUrl} alt="" className="absolute inset-0 size-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} />
+                    <img src={opcao.cartazUrl} alt="" loading="lazy" decoding="async" className="absolute inset-0 size-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} />
                   </>}
                 </span>
                 <span className="min-w-0"><span className="block truncate text-sm font-semibold text-[#102745]">{opcao.nome}</span><span className="block truncate text-[11px] text-[#1A2E4F]/55">{opcao.localizacao}</span></span>

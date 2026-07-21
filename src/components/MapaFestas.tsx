@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
-import FestaMap, { type FestaMapHandle } from "@/components/FestaMap";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useRef, useState, type ComponentPropsWithoutRef, type ForwardRefExoticComponent, type RefAttributes } from "react";
+import type FestaMapBase from "@/components/FestaMap";
+import type { FestaMapHandle } from "@/components/FestaMap";
 import Galeria from "@/components/Galeria";
 import type { FestasGeoJSON } from "@/lib/eventos";
 import {
@@ -15,6 +17,11 @@ import {
   type Coords,
   type FestaSelecionada,
 } from "@/lib/festa-ui";
+
+const FestaMap = dynamic(() => import("@/components/FestaMap"), {
+  ssr: false,
+  loading: () => <div className="absolute inset-0 animate-pulse bg-[#e9effa]" aria-label="A carregar mapa" />,
+}) as unknown as ForwardRefExoticComponent<ComponentPropsWithoutRef<typeof FestaMapBase> & RefAttributes<FestaMapHandle>>;
 
 type Painel =
   | { modo: "fechado" }
@@ -44,6 +51,9 @@ type DetalheExtra = {
   programa: ProgramaDia[] | null;
   subLocalizacoes?: { id: string; nome: string; tipo: string; descricao: string | null; lat: number; lng: number }[];
 };
+
+const DURACAO_CACHE_DETALHE = 5 * 60_000;
+type DetalheEmCache = { valor: DetalheExtra | null; expiraEm: number };
 
 function normalizarDetalhe(valor: unknown): DetalheExtra | null {
   if (!valor || typeof valor !== "object") return null;
@@ -276,7 +286,7 @@ function DetalheFesta({
       <div className="relative shrink-0">
         {cartaz ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cartaz} alt={`Cartaz de ${p.nome}`} className="h-32 w-full object-cover" />
+          <img src={cartaz} alt={`Cartaz de ${p.nome}`} decoding="async" className="h-32 w-full object-cover" />
         ) : (
           <div className="flex h-32 w-full items-center justify-center bg-gradient-to-b from-[#F97B16] to-[#EC2456]">
             <Image src="/logo-mark.svg" alt="" width={60} height={60} className="opacity-90 drop-shadow" />
@@ -447,7 +457,7 @@ function DetalheFesta({
                 <div className="hidden" />
                 <div className="mx-auto overflow-hidden rounded-md border border-[#1A2E4F]/10 bg-white">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={cartaz} alt={`Cartaz de ${p.nome}`} className="w-full object-contain" />
+                  <img src={cartaz} alt={`Cartaz de ${p.nome}`} loading="lazy" decoding="async" className="w-full object-contain" />
                 </div>
               </div>
             ) : (
@@ -597,6 +607,8 @@ function ListaFestas({
                     <img
                       src={p.cartaz_url}
                       alt=""
+                      loading="lazy"
+                      decoding="async"
                       className="h-full w-full object-cover transition group-hover:scale-105"
                     />
                   ) : (
@@ -661,6 +673,7 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
   const pediuLoc = useRef(false);
   const mapaRef = useRef<FestaMapHandle>(null);
   const pedidoDetalheRef = useRef(0);
+  const detalhesEmCache = useRef(new Map<string, DetalheEmCache>());
 
   const pedirLocalizacao = useCallback(() => {
     if (pediuLoc.current || !("geolocation" in navigator)) return;
@@ -678,12 +691,17 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
     setACarregarDetalhe(festa.props.id);
     pedirLocalizacao();
 
-    let detalhe: DetalheExtra | null = null;
-    try {
-      const resposta = await fetch(`/api/festa?concelho=${encodeURIComponent(festa.props.concelho_slug)}&slug=${encodeURIComponent(festa.props.slug)}`, { cache: "no-store" });
-      detalhe = resposta.ok ? normalizarDetalhe(await resposta.json()) : null;
-    } catch {
-      detalhe = null;
+    const chave = `${festa.props.concelho_slug}/${festa.props.slug}`;
+    const emCache = detalhesEmCache.current.get(chave);
+    let detalhe: DetalheExtra | null = emCache && emCache.expiraEm > Date.now() ? emCache.valor : null;
+    if (!emCache || emCache.expiraEm <= Date.now()) {
+      try {
+        const resposta = await fetch(`/api/festa?concelho=${encodeURIComponent(festa.props.concelho_slug)}&slug=${encodeURIComponent(festa.props.slug)}`);
+        detalhe = resposta.ok ? normalizarDetalhe(await resposta.json()) : null;
+        if (resposta.ok) detalhesEmCache.current.set(chave, { valor: detalhe, expiraEm: Date.now() + DURACAO_CACHE_DETALHE });
+      } catch {
+        detalhe = null;
+      }
     }
 
     if (pedido !== pedidoDetalheRef.current) return;

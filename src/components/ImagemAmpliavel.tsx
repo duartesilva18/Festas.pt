@@ -23,7 +23,7 @@ export default function ImagemAmpliavel({
         aria-label="Ver imagem maior"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={alt} className={className} />
+        <img src={src} alt={alt} decoding="async" className={className} />
       </button>
       <Lightbox
         fotos={[src]}

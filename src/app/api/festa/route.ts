@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchFestaDetalhe } from "@/lib/festa-detalhe";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 const IDENTIFICADOR = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export async function GET(req: Request) {
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
         programa: festa.programa,
         subLocalizacoes: festa.subLocalizacoes,
       },
-      { headers: { "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate" } },
+      { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } },
     );
   } catch {
     return NextResponse.json({ error: "Detalhe indisponível" }, { status: 503 });
