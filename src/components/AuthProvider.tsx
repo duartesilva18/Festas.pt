@@ -98,7 +98,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const entrarComGoogle = useCallback(() => {
     void supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        // Mostra sempre o seletor de contas em vez de entrar com a última usada.
+        queryParams: { prompt: "select_account" },
+      },
     });
   }, [supabase]);
 

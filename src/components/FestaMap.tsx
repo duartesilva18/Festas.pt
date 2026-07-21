@@ -228,6 +228,20 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
     map.on("load", async () => {
+      // O estilo base traz nomes internacionais ("Lisbon"); força português
+      // com fallback para o nome local em todas as camadas de texto.
+      for (const camada of map.getStyle().layers ?? []) {
+        if (camada.type !== "symbol") continue;
+        const campo = map.getLayoutProperty(camada.id, "text-field");
+        if (campo && JSON.stringify(campo).includes("name")) {
+          map.setLayoutProperty(camada.id, "text-field", [
+            "coalesce",
+            ["get", "name:pt"],
+            ["get", "name"],
+          ]);
+        }
+      }
+
       await Promise.all([
         carregarPin(map, "pin-a-decorrer", CORES.a_decorrer),
         carregarPin(map, "pin-em-breve", CORES.em_breve),
