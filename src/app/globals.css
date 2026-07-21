@@ -60,6 +60,11 @@ body {
   pointer-events: none;
 }
 
+.painel-entrada button:not(:disabled),
+.painel-entrada a {
+  cursor: pointer;
+}
+
 /* Em ecrãs pequenos o painel é um bottom sheet: entra e sai por baixo. */
 @keyframes sheet-entrada {
   from {

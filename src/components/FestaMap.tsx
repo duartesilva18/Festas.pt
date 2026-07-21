@@ -154,6 +154,7 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
     focarFesta(lngLat) {
       const map = mapRef.current;
       if (!map) return;
+      map.stop();
       map.easeTo({ center: lngLat, zoom: Math.max(map.getZoom(), 15), padding: { left: 450 }, duration: 700, essential: true });
     },
     afastarFesta(lngLat) {
@@ -314,14 +315,15 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
         if (typeof clusterId !== "number") return;
         const source = map.getSource("festas") as maplibregl.GeoJSONSource;
 
-        const folhas = await source.getClusterLeaves(clusterId, 100, 0);
-        escolherGrupoRef.current?.(folhas.map(paraSelecao));
-
-        const zoom = await source.getClusterExpansionZoom(clusterId);
+        const [folhas, zoom] = await Promise.all([
+          source.getClusterLeaves(clusterId, 100, 0),
+          source.getClusterExpansionZoom(clusterId),
+        ]);
         map.easeTo({
           center: (feature.geometry as GeoJSON.Point).coordinates as [number, number],
           zoom,
         });
+        escolherGrupoRef.current?.(folhas.map(paraSelecao));
       });
 
       map.on("click", "festas-pontos", (e) => {

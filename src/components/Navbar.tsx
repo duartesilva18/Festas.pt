@@ -23,10 +23,9 @@ function CampoPesquisa({ className = "", opcoes = [] }: { className?: string; op
   };
   return (
     <form onSubmit={pesquisar} className={`relative flex items-center gap-2.5 rounded-full border border-[#1A2E4F]/15 bg-[#1A2E4F]/[0.03] px-4 py-2 transition focus-within:border-[#EC2456]/50 focus-within:bg-white ${className}`}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A2E4F" strokeWidth="2.2" strokeLinecap="round" className="shrink-0 opacity-40">
-        <circle cx="11" cy="11" r="7" />
-        <path d="m20 20-3.5-3.5" />
-      </svg>
+      <button type="submit" aria-label="Pesquisar" className="flex size-6 shrink-0 items-center justify-center text-[#1A2E4F]/40 transition hover:text-[#EC2456]">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+      </button>
       <input
         type="search"
         value={termo}
@@ -35,9 +34,6 @@ function CampoPesquisa({ className = "", opcoes = [] }: { className?: string; op
         placeholder="Procura uma festa, vila ou concelho…"
         className="w-full bg-transparent text-sm text-[#1A2E4F] outline-none placeholder:text-[#1A2E4F]/40"
       />
-      <button type="submit" aria-label="Pesquisar" className="-mr-1 flex size-7 shrink-0 items-center justify-center rounded-full text-[#1A2E4F]/45 transition hover:bg-[#EC2456]/10 hover:text-[#EC2456]">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-      </button>
       {sugestoes.length > 0 && (
         <ul className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-[#1A2E4F]/10 bg-white py-1.5 shadow-xl">
           {sugestoes.map((opcao) => (

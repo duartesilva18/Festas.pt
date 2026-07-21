@@ -113,6 +113,64 @@ const CRITICAS_MOCK = [
   { nome: "Inês Matos", iniciais: "IM", quando: "há 2 meses", nota: 5, texto: "Fomos em família e adorámos. A programação é variada e o recinto está muito bem cuidado.", util: 4, cor: "#1A2E4F" },
 ];
 
+function FormularioCritica({ festaId, aoFechar }: { festaId: string; aoFechar: () => void }) {
+  const [nome, setNome] = useState("");
+  const [nota, setNota] = useState(0);
+  const [notaHover, setNotaHover] = useState(0);
+  const [texto, setTexto] = useState("");
+  const [website, setWebsite] = useState("");
+  const [erro, setErro] = useState("");
+  const [enviada, setEnviada] = useState(false);
+  const [aEnviar, setAEnviar] = useState(false);
+  const [inicioFormulario] = useState(() => Date.now());
+  const avaliacaoAtiva = notaHover || nota;
+  const etiquetasNota = ["", "Muito fraco", "Fraco", "Razoável", "Bom", "Excelente"];
+
+  const enviar = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setErro("");
+    if (!nota || texto.trim().length < 20) {
+      setErro("Escolhe uma nota e escreve pelo menos 20 caracteres.");
+      return;
+    }
+    setAEnviar(true);
+    try {
+      const resposta = await fetch("/api/criticas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          festaId,
+          nome,
+          nota,
+          texto,
+          website,
+          tempoPreenchimento: Date.now() - inicioFormulario,
+        }),
+      });
+      const dados = await resposta.json().catch(() => null);
+      if (!resposta.ok) throw new Error(dados?.error ?? "Não foi possível enviar a crítica.");
+      setEnviada(true);
+    } catch (causa) {
+      setErro(causa instanceof Error ? causa.message : "Não foi possível enviar a crítica.");
+    } finally {
+      setAEnviar(false);
+    }
+  };
+
+  if (enviada) return <div className="mt-4 rounded-xl border border-[#20856D]/20 bg-[#20856D]/[0.05] p-4"><p className="text-sm font-bold text-[#102745]">Obrigado pela tua crítica.</p><p className="mt-1 text-xs leading-relaxed text-[#1A2E4F]/65">Foi enviada para validação e aparecerá publicamente depois de aprovada.</p><button type="button" onClick={aoFechar} className="mt-3 text-xs font-bold text-[#20856D]">Fechar</button></div>;
+
+  return <form onSubmit={enviar} className="mt-4 rounded-xl border border-[#EC2456]/20 bg-[#fff8fa] p-4">
+    <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-[#102745]">Partilha a tua experiência</p><p className="mt-0.5 text-[11px] leading-relaxed text-[#1A2E4F]/60">Não precisas de conta. A crítica é revista antes de ficar pública.</p></div><button type="button" onClick={aoFechar} className="text-xs font-bold text-[#1A2E4F]/55 hover:text-[#EC2456]">Cancelar</button></div>
+    <fieldset className="mt-4"><legend className="text-xs font-semibold text-[#1A2E4F]/75">A tua avaliação</legend><div onMouseLeave={() => setNotaHover(0)} role="radiogroup" aria-label="Avaliação de uma a cinco estrelas" className="mt-1.5 flex items-center gap-1"><div className="flex gap-1">{[1, 2, 3, 4, 5].map((estrela) => <button key={estrela} type="button" role="radio" onMouseEnter={() => setNotaHover(estrela)} onFocus={() => setNotaHover(estrela)} onBlur={() => setNotaHover(0)} onKeyDown={(event) => { if (event.key === "ArrowRight" || event.key === "ArrowUp") { event.preventDefault(); setNota(Math.min(5, estrela + 1)); } if (event.key === "ArrowLeft" || event.key === "ArrowDown") { event.preventDefault(); setNota(Math.max(1, estrela - 1)); } }} onClick={() => setNota(estrela)} aria-label={`${estrela} estrela${estrela > 1 ? "s" : ""}`} aria-checked={nota === estrela} className={`text-2xl leading-none transition duration-150 hover:scale-110 focus-visible:scale-110 focus-visible:outline-none ${estrela <= avaliacaoAtiva ? "text-[#F97B16]" : "text-[#1A2E4F]/15"}`}>★</button>)}</div><span aria-live="polite" className={`ml-2 text-xs font-semibold transition ${avaliacaoAtiva ? "text-[#F97B16]" : "text-[#1A2E4F]/40"}`}>{avaliacaoAtiva ? etiquetasNota[avaliacaoAtiva] : "Escolhe uma nota"}</span></div></fieldset>
+    <label className="mt-4 block text-xs font-semibold text-[#1A2E4F]/75">Nome <span className="font-normal text-[#1A2E4F]/45">(opcional)</span><input value={nome} onChange={(event) => setNome(event.target.value)} maxLength={60} autoComplete="name" placeholder="Como queres aparecer" className="mt-1.5 w-full rounded-lg border border-[#1A2E4F]/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-[#EC2456]" /></label>
+    <label className="mt-3 block text-xs font-semibold text-[#1A2E4F]/75">A tua crítica<textarea value={texto} onChange={(event) => setTexto(event.target.value)} maxLength={1200} required className="mt-1.5 min-h-24 w-full resize-none rounded-lg border border-[#1A2E4F]/15 bg-white p-3 text-sm font-normal outline-none transition focus:border-[#EC2456]" placeholder="O que gostaste e o que podia melhorar?" /></label>
+    <input name="website" value={website} onChange={(event) => setWebsite(event.target.value)} tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
+    <div className="mt-1 flex justify-between text-[11px] text-[#1A2E4F]/45"><span>Mínimo de 20 caracteres</span><span>{texto.length}/1200</span></div>
+    {erro && <p role="alert" className="mt-3 text-xs font-semibold text-[#c43d4b]">{erro}</p>}
+    <button type="submit" disabled={aEnviar} className="mt-4 w-full rounded-lg bg-[#EC2456] py-2.5 text-sm font-bold text-white transition hover:bg-[#d11a47] disabled:cursor-wait disabled:opacity-60">{aEnviar ? "A enviar…" : "Enviar para validação"}</button>
+  </form>;
+}
+
 function DetalheFesta({
   festa,
   deLista,
@@ -139,6 +197,7 @@ function DetalheFesta({
   const [aba, setAba] = useState<"visao" | "cartaz" | "criticas" | "acerca">("visao");
   const [menuDirecoes, setMenuDirecoes] = useState(false);
   const [formularioCritica, setFormularioCritica] = useState(false);
+  const conteudoRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let ativo = true;
@@ -179,6 +238,7 @@ function DetalheFesta({
   const selecionarAba = (proximaAba: "visao" | "cartaz" | "criticas" | "acerca") => {
     setMenuDirecoes(false);
     setAba(proximaAba);
+    conteudoRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -258,7 +318,7 @@ function DetalheFesta({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5">
+      <div ref={conteudoRef} className="flex-1 overflow-y-auto p-5">
         {aba === "visao" && <>
         <p className="sr-only">
           <span className="text-[#EC2456]">
@@ -386,17 +446,12 @@ function DetalheFesta({
                 <h3 className="text-base font-bold text-[#102745]">Críticas</h3>
                 <p className="mt-0.5 text-xs text-[#1A2E4F]/55">Experiências de quem já participou</p>
               </div>
-              <button type="button" onClick={() => setFormularioCritica((aberto) => !aberto)} className="shrink-0 rounded-full bg-[#EC2456]/10 px-3 py-1.5 text-xs font-bold text-[#EC2456] transition hover:bg-[#EC2456]/15">
+              <button type="button" onClick={() => setFormularioCritica((aberto) => !aberto)} className="shrink-0 rounded-md bg-[#EC2456] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#d11a47]">
                 {formularioCritica ? "Fechar" : "Escrever crítica"}
               </button>
             </div>
 
-            {formularioCritica && <div className="mt-4 rounded-xl border border-[#EC2456]/20 bg-[#fff8fa] p-3">
-              <p className="text-sm font-semibold text-[#102745]">Como foi a tua experiência?</p>
-              <div className="mt-2 flex gap-1 text-[#F97B16]" aria-label="Selecionar avaliação de cinco estrelas">★★★★★</div>
-              <textarea className="mt-3 min-h-20 w-full resize-none rounded-lg border border-[#1A2E4F]/15 bg-white p-2.5 text-sm outline-none transition focus:border-[#EC2456]" placeholder="Conta-nos o que gostaste nesta festa…" />
-              <button type="button" onClick={() => setFormularioCritica(false)} className="mt-2 w-full rounded-lg bg-[#EC2456] py-2 text-sm font-bold text-white transition hover:bg-[#d11a47]">Publicar crítica</button>
-            </div>}
+            {formularioCritica && <FormularioCritica festaId={p.id} aoFechar={() => setFormularioCritica(false)} />}
 
             <div className="mt-5 grid grid-cols-[1fr_auto] items-center gap-5 border-y border-[#1A2E4F]/10 py-4">
               <div className="space-y-1.5">
