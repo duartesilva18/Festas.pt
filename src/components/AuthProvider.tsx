@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
@@ -43,6 +43,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set());
   const [papel, setPapel] = useState<string | null>(null);
   const [promptAberto, setPromptAberto] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const avisoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const mostrarAviso = useCallback((mensagem: string) => {
+    if (avisoTimer.current) clearTimeout(avisoTimer.current);
+    setAviso(mensagem);
+    avisoTimer.current = setTimeout(() => setAviso(null), 2500);
+  }, []);
 
   useEffect(() => {
     if (!promptAberto) return;
@@ -111,7 +119,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUtilizador(null);
     setFavoritos(new Set());
     setPapel(null);
-  }, [supabase]);
+    mostrarAviso("Sessão terminada. Até à próxima festa!");
+  }, [supabase, mostrarAviso]);
 
   const pedirLogin = useCallback(() => setPromptAberto(true), []);
 
@@ -157,6 +166,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
+      {aviso && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="toast-entrada fixed bottom-6 left-1/2 z-[130] flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#102745] py-2.5 pl-3.5 pr-5 text-sm font-semibold text-white shadow-xl"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7ee2c0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+          {aviso}
+        </div>
+      )}
       {promptAberto && (
         <div
           onClick={() => setPromptAberto(false)}
