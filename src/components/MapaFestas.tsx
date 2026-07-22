@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentPropsWithoutRef, type CSSProperties, type ForwardRefExoticComponent, type PointerEvent as ReactPointerEvent, type RefAttributes } from "react";
 import CartazFallback from "@/components/CartazFallback";
+import ConviteOrganizador from "@/components/ConviteOrganizador";
 import type FestaMapBase from "@/components/FestaMap";
 import type { FestaMapHandle } from "@/components/FestaMap";
 import Galeria from "@/components/Galeria";
@@ -1005,6 +1006,7 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
         }}
       />
       {painel.modo !== "detalhe" && <FiltrosMapa filtro={filtroMapa} onChange={alterarFiltroMapa} />}
+      {painel.modo === "fechado" && <ConviteOrganizador />}
       {erroMapa && <div role="status" className="absolute inset-x-4 top-4 z-20 mx-auto flex max-w-sm items-center justify-between gap-3 rounded-lg bg-white px-3 py-2.5 text-xs font-semibold text-[#1A2E4F] shadow-lg ring-1 ring-[#1A2E4F]/10"><span>Não foi possível carregar o mapa.</span><button type="button" onClick={() => window.location.reload()} className="cursor-pointer text-[#EC2456] transition hover:text-[#d11a47]">Tentar de novo</button></div>}
 
       {painel.modo !== "fechado" && (
