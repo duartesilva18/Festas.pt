@@ -8,7 +8,7 @@ import CriticasRecebidas from "@/components/CriticasRecebidas";
 import FestasGuardadasPerfil from "@/components/FestasGuardadasPerfil";
 import DefinicoesPerfil from "@/components/DefinicoesPerfil";
 import EstadoEventoOrganizador from "@/components/EstadoEventoOrganizador";
-import PoloPedidoOrganizador from "@/components/PoloPedidoOrganizador";
+import EscutaPedidoOrganizador from "@/components/EscutaPedidoOrganizador";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatarDatas } from "@/lib/festa-ui";
 
@@ -163,7 +163,7 @@ export default async function PaginaPerfil() {
             <section id="organizador" className="rounded-2xl border border-[#1A2E4F]/10 bg-white p-5 shadow-sm sm:p-6">
               <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wide text-[#EC2456]">Organização</p><h2 className="mt-1 text-xl font-bold text-[#102745]">Organizador de eventos</h2></div>{verificado && <span className="inline-flex items-center gap-1.5 rounded-full bg-[#20856D]/10 px-2.5 py-1 text-xs font-bold text-[#15705c]"><Icone tipo="check" />Verificado</span>}</div>
               {verificado && pedido?.estado === "aprovado" ? <AvisoOrganizador userId={user.id} pedidoId={pedido.id} /> : null}
-              {pedido?.estado === "pendente" && <PoloPedidoOrganizador pedidoId={pedido.id} estadoInicial={pedido.estado} />}
+              {pedido?.estado === "pendente" && <EscutaPedidoOrganizador pedidoId={pedido.id} estadoInicial={pedido.estado} />}
               {verificado ? (
                 <div className="mt-5 rounded-xl bg-[#1A2E4F]/[0.035] p-4"><p className="text-sm font-semibold text-[#102745]">O teu espaço de organização está ativo.</p><p className="mt-1 text-xs leading-relaxed text-[#1A2E4F]/60">Cria eventos, acompanha o estado de publicação e mantém as informações da tua entidade atualizadas.</p><Link href="/criar-evento" className="mt-4 inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-[#EC2456] transition hover:text-[#d11a47]"><Icone tipo="mais" />Criar um evento</Link></div>
               ) : pedido?.estado === "pendente" ? (
