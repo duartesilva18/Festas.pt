@@ -213,7 +213,7 @@ function MenuUtilizador() {
           </Link>
           {papel === "admin" && (
             <Link
-              href="/admin/criticas"
+              href="/admin/eventos"
               onClick={() => setAberto(false)}
               className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#EC2456]/[0.06] hover:text-[#EC2456]"
             >
