@@ -78,7 +78,7 @@ export default function PedidoOrganizador({ textoBotao }: { textoBotao: string }
       <button
         type="button"
         onClick={() => setAberto(true)}
-        className="mt-3 rounded-full bg-[#EC2456] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#d11a47]"
+        className="mt-3 cursor-pointer rounded-full bg-[#EC2456] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#d11a47]"
       >
         {textoBotao}
       </button>
@@ -94,7 +94,7 @@ export default function PedidoOrganizador({ textoBotao }: { textoBotao: string }
             Diz-nos que entidade representas. Analisamos cada pedido manualmente.
           </p>
         </div>
-        <button type="button" onClick={() => setAberto(false)} className="text-xs font-bold text-[#1A2E4F]/55 hover:text-[#EC2456]">Cancelar</button>
+        <button type="button" onClick={() => setAberto(false)} className="cursor-pointer text-xs font-bold text-[#1A2E4F]/55 hover:text-[#EC2456]">Cancelar</button>
       </div>
 
       <label className={`${ETIQUETA} mt-4`}>Nome da entidade
@@ -102,7 +102,7 @@ export default function PedidoOrganizador({ textoBotao }: { textoBotao: string }
       </label>
 
       <label className={ETIQUETA}>Tipo de entidade
-        <select value={tipoEntidade} onChange={(e) => setTipoEntidade(e.target.value)} className={CAMPO}>
+        <select value={tipoEntidade} onChange={(e) => setTipoEntidade(e.target.value)} className={`${CAMPO} cursor-pointer`}>
           {TIPOS.map(([valor, texto]) => <option key={valor} value={valor}>{texto}</option>)}
         </select>
       </label>
@@ -132,7 +132,7 @@ export default function PedidoOrganizador({ textoBotao }: { textoBotao: string }
 
       {erro && <p role="alert" className="mt-3 text-xs font-semibold text-[#c43d4b]">{erro}</p>}
 
-      <button type="submit" disabled={aEnviar} className="mt-4 w-full rounded-lg bg-[#EC2456] py-2.5 text-sm font-bold text-white transition hover:bg-[#d11a47] disabled:cursor-wait disabled:opacity-60">
+      <button type="submit" disabled={aEnviar} className="mt-4 w-full cursor-pointer rounded-lg bg-[#EC2456] py-2.5 text-sm font-bold text-white transition hover:bg-[#d11a47] disabled:cursor-wait disabled:opacity-60">
         {aEnviar ? "A enviar…" : "Enviar pedido"}
       </button>
     </form>

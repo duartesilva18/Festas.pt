@@ -162,13 +162,24 @@ function MenuUtilizador() {
   );
 
   return (
-    <div ref={ref} className="relative ml-1">
+    <>
+      {(papel === "organizador" || papel === "admin") && (
+        <Link
+          href="/criar-evento"
+          className="flex cursor-pointer items-center gap-1.5 rounded-full bg-[#EC2456] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#d11a47] hover:shadow-md sm:px-4"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+          <span className="hidden sm:inline">Criar evento</span>
+          <span className="sr-only sm:hidden">Criar evento</span>
+        </Link>
+      )}
+      <div ref={ref} className="relative ml-1">
       <button
         type="button"
         onClick={() => setAberto((v) => !v)}
         aria-label="A minha conta"
         aria-expanded={aberto}
-        className="flex items-center gap-2 rounded-full py-1 pl-1 pr-1 text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#1A2E4F]/[0.04] sm:pr-2.5"
+        className="flex cursor-pointer items-center gap-2 rounded-full py-1 pl-1 pr-1 text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#1A2E4F]/[0.04] sm:pr-2.5"
       >
         {avatar}
         <span className="hidden max-w-[120px] truncate sm:block">{primeiroUltimoNome(utilizador.nome, utilizador.email)}</span>
@@ -212,7 +223,8 @@ function MenuUtilizador() {
           </button>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

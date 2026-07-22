@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { origemValida } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -17,6 +18,8 @@ function textoLimpo(valor: unknown, limite: number) {
 }
 
 export async function POST(req: Request) {
+  if (!origemValida(req)) return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
+
   const tamanho = Number(req.headers.get("content-length") ?? 0);
   if (!Number.isFinite(tamanho) || tamanho > 6144) {
     return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });

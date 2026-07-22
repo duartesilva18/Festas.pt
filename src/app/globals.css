@@ -25,6 +25,17 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
+/* O Tailwind v4 repõe o cursor dos botões para "default"; restaura o ponteiro
+   em todos os elementos interativos (exceto desativados). */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label:has(> input[type="checkbox"]),
+label:has(> input[type="radio"]),
+select:not(:disabled),
+summary {
+  cursor: pointer;
+}
+
 @keyframes painel-entrada {
   from {
     opacity: 0;
@@ -122,11 +133,11 @@ body {
 @keyframes toast-entrada {
   from {
     opacity: 0;
-    transform: translate(-50%, 8px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translateY(0);
   }
 }
 

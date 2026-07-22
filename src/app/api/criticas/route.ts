@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { origemValida } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,17 +16,6 @@ function textoLimpo(valor: unknown, limite: number) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, limite + 1);
-}
-
-function origemValida(req: Request) {
-  const origem = req.headers.get("origin");
-  const host = req.headers.get("host");
-  if (!origem || !host) return false;
-  try {
-    return new URL(origem).host === host;
-  } catch {
-    return false;
-  }
 }
 
 function respostaGenerica() {

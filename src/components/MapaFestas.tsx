@@ -257,7 +257,15 @@ function DetalheFesta({
   const [formularioCritica, setFormularioCritica] = useState(false);
   const [criticas, setCriticas] = useState<CriticaPublica[]>([]);
   const [aCarregarCriticas, setACarregarCriticas] = useState(true);
+  const [avisoGuardar, setAvisoGuardar] = useState<{ mensagem: string; erro?: boolean } | null>(null);
+  const [aGuardar, setAGuardar] = useState(false);
   const conteudoRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!avisoGuardar) return;
+    const temporizador = window.setTimeout(() => setAvisoGuardar(null), 2_000);
+    return () => window.clearTimeout(temporizador);
+  }, [avisoGuardar]);
 
   useEffect(() => {
     aoMostrarSublocalizacoes(extra?.subLocalizacoes ?? []);
@@ -306,6 +314,19 @@ function DetalheFesta({
     setAba(proximaAba);
     conteudoRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
+  const guardarFesta = async () => {
+    if (aGuardar) return;
+    setMenuDirecoes(false);
+    setAGuardar(true);
+    try {
+      const resultado = await alternar(p.id);
+      if (resultado === "guardado") setAvisoGuardar({ mensagem: "Festa guardada no teu perfil." });
+      if (resultado === "removido") setAvisoGuardar({ mensagem: "Festa removida dos guardados." });
+      if (resultado === "erro") setAvisoGuardar({ mensagem: "Não foi possível atualizar os guardados.", erro: true });
+    } finally {
+      setAGuardar(false);
+    }
+  };
 
   return (
     <div className="relative flex h-full flex-col">
@@ -326,15 +347,15 @@ function DetalheFesta({
       <div className="relative shrink-0">
         {cartaz ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cartaz} alt={`Cartaz de ${p.nome}`} decoding="async" className="h-32 w-full object-cover" />
+          <img src={cartaz} alt={`Cartaz de ${p.nome}`} decoding="async" className="h-40 w-full object-cover" />
         ) : (
-          <div className="flex h-32 w-full items-center justify-center bg-gradient-to-b from-[#F97B16] to-[#EC2456]">
+          <div className="flex h-40 w-full items-center justify-center bg-gradient-to-b from-[#F97B16] to-[#EC2456]">
             <Image src="/logo-mark.svg" alt="" width={60} height={60} className="opacity-90 drop-shadow" />
           </div>
         )}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#102745]/80 via-[#102745]/25 to-transparent px-4 pb-3 pt-8 text-white">
-          <div className="flex items-center gap-2 pr-14"><h2 className="min-w-0 truncate text-lg font-bold leading-tight drop-shadow-sm">{p.nome}</h2>{typeof p.media_criticas === "number" && p.total_criticas > 0 && <span className="shrink-0 text-xs font-bold text-[#FFD166] drop-shadow-sm">{p.media_criticas.toFixed(1).replace(".", ",")} ★</span>}</div>
-          <p className="mt-0.5 truncate pr-24 text-xs text-white/80">{p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho} · {p.distrito}</p>
+          <h2 className="pr-36 text-lg font-bold leading-tight drop-shadow-sm">{p.nome}</h2>
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 pr-24 text-xs"><span className="min-w-0 truncate text-white/80">{p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho} · {p.distrito}</span>{typeof p.media_criticas === "number" && p.total_criticas > 0 && <span className="shrink-0 font-bold text-[#FFD166] drop-shadow-sm">{p.media_criticas.toFixed(1).replace(".", ",")} ★</span>}</div>
           <div className="mt-2 flex flex-wrap items-center gap-1.5 pr-20 text-[11px] font-semibold">
             <span className="text-white">{formatarDatas(p.data_inicio, p.data_fim)} · {p.ano}</span>
             {p.categorias?.map((categoria) => <span key={categoria} className="capitalize text-white/75 before:mr-1.5 before:content-['·']">{categoria}</span>)}
@@ -373,7 +394,7 @@ function DetalheFesta({
             </a>
           </div>}
         </div>
-        <button type="button" onClick={() => { setMenuDirecoes(false); alternar(p.id); }} aria-pressed={estaGuardado} className={`group flex flex-col items-center gap-1.5 rounded-lg py-1 transition-colors duration-150 hover:bg-[#F97B16]/[0.06] hover:text-[#EC2456] ${estaGuardado ? "text-[#EC2456]" : ""}`} aria-label={estaGuardado ? "Remover dos guardados" : "Guardar festa"}>
+        <button type="button" onClick={() => void guardarFesta()} disabled={aGuardar} aria-busy={aGuardar} aria-pressed={estaGuardado} className={`group flex cursor-pointer flex-col items-center gap-1.5 rounded-lg py-1 transition-colors duration-150 hover:bg-[#F97B16]/[0.06] hover:text-[#EC2456] disabled:cursor-wait disabled:opacity-60 ${estaGuardado ? "text-[#EC2456]" : ""}`} aria-label={estaGuardado ? "Remover dos guardados" : "Guardar festa"}>
           <span className="flex size-9 items-center justify-center rounded-full bg-[#EC2456]/10 text-[#EC2456] transition-colors duration-150 group-hover:bg-[#EC2456]/20"><svg width="17" height="17" viewBox="0 0 24 24" fill={estaGuardado ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg></span>{estaGuardado ? "Guardado" : "Guardar"}
         </button>
         <button type="button" onClick={() => selecionarAba("cartaz")} className="group flex flex-col items-center gap-1.5 rounded-lg py-1 transition-colors duration-150 hover:bg-[#EC2456]/[0.06] hover:text-[#EC2456]">
@@ -591,6 +612,7 @@ function DetalheFesta({
           </svg>
         </a>
       </div>
+      {avisoGuardar && <div className="pointer-events-none fixed inset-x-0 bottom-[calc(2.25rem+1rem)] z-[130] flex justify-center px-4"><div role="status" aria-live="polite" className={`toast-entrada flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold shadow-xl ${avisoGuardar.erro ? "bg-[#B41E47] text-white" : "bg-[#102745] text-white"}`}><svg className={`size-4 shrink-0 ${avisoGuardar.erro ? "text-white" : "text-[#7ee2c0]"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={avisoGuardar.erro ? "M12 9v4m0 4h.01M5.9 19h12.2c1.5 0 2.46-1.62 1.73-2.95L13.73 5.5c-.75-1.33-2.67-1.33-3.44 0L4.17 16.05C3.44 17.38 4.4 19 5.9 19Z" : "m5 12 4 4L19 6"} /></svg>{avisoGuardar.mensagem}</div></div>}
     </div>
   );
 }
@@ -612,6 +634,7 @@ function ListaFestas({
 }) {
   const [filtro, setFiltro] = useState<"todas" | "a_decorrer" | "em_breve">("todas");
   const [ordem, setOrdem] = useState<"data" | "distancia">("data");
+  const { guardado } = useAuth();
   const contagens = {
     todas: festas.length,
     a_decorrer: festas.filter((f) => f.props.estado_temporal === "a_decorrer").length,
@@ -665,6 +688,7 @@ function ListaFestas({
         {ordenadas.map((f) => {
           const p = f.props;
           const cor = CORES[p.estado_temporal];
+          const estaGuardado = guardado(p.id);
           return (
             <li key={p.id}>
               <button
@@ -704,7 +728,7 @@ function ListaFestas({
                   )}
                 </div>
                 <div className="p-3">
-                  <div className="flex items-center justify-between gap-2"><span className="min-w-0 truncate text-sm font-bold text-[#1A2E4F]">{p.nome}</span>{typeof p.media_criticas === "number" && p.total_criticas > 0 && <span className="shrink-0 text-xs font-bold text-[#F97B16]">{p.media_criticas.toFixed(1).replace(".", ",")} ★</span>}</div>
+                  <div className="flex items-center justify-between gap-2"><span className="min-w-0 truncate text-sm font-bold text-[#1A2E4F]">{p.nome}</span><span className="flex shrink-0 items-center gap-1.5">{typeof p.media_criticas === "number" && p.total_criticas > 0 && <span className="text-xs font-bold text-[#F97B16]">{p.media_criticas.toFixed(1).replace(".", ",")} ★</span>}{estaGuardado && <span aria-label="Festa guardada" title="Festa guardada" className="flex size-5 items-center justify-center rounded-full bg-[#EC2456]/10 text-[#EC2456]"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg></span>}</span></div>
                   <span className="mt-0.5 flex items-center gap-1 truncate text-xs text-[#1A2E4F]/60">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EC2456" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg>
                     {p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho} · {p.distrito}
@@ -857,7 +881,7 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
 
       {painel.modo !== "fechado" && (
         <div
-          className={`painel-entrada absolute z-10 overflow-hidden bg-white shadow-2xl ring-1 ring-[#1A2E4F]/10 inset-x-0 bottom-0 h-[68vh] rounded-t-xl sm:inset-x-auto sm:bottom-4 sm:left-4 sm:top-4 sm:h-auto sm:w-[410px] sm:rounded-lg ${aFechar ? "painel-saida" : ""}`}
+          className={`painel-entrada absolute z-10 overflow-hidden bg-white shadow-2xl ring-1 ring-[#1A2E4F]/10 inset-x-0 bottom-0 h-[68vh] rounded-t-xl sm:inset-x-auto sm:bottom-4 sm:left-4 sm:top-4 sm:h-auto sm:w-[430px] sm:rounded-lg ${aFechar ? "painel-saida" : ""}`}
         >
           <div className="absolute left-1/2 top-2 z-20 h-1 w-9 -translate-x-1/2 rounded-full bg-[#1A2E4F]/20 sm:hidden" />
           <div key={chaveConteudo} className="conteudo-entrada h-full">

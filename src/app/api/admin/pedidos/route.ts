@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { validarAdmin } from "@/lib/admin";
+import { origemValida } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -7,6 +8,7 @@ export const runtime = "nodejs";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function POST(req: Request) {
+  if (!origemValida(req)) return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
   const admin = await validarAdmin();
   if (!admin) return NextResponse.json({ error: "Sem permissões." }, { status: 403 });
 
