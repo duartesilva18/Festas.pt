@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { dentroDoLimite, identificarPedido } from "@/lib/limites";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -54,8 +55,7 @@ const NOMES_TIPO: Record<string, string> = {
   locality: "Localidade",
 };
 const cacheMemoria = new Map<string, { expiraEm: number; resultados: ResultadoLocalidade[] }>();
-const tentativas = new Map<string, { inicio: number; total: number }>();
-const JANELA_MS = 60_000;
+const JANELA_S = 60;
 const MAXIMO_POR_JANELA = 20;
 let ultimoPedidoExterno = 0;
 let filaExterna: Promise<void> = Promise.resolve();
@@ -68,24 +68,6 @@ function resposta(corpo: object, estado = 200) {
       "X-Content-Type-Options": "nosniff",
     },
   });
-}
-
-function podePesquisar(req: NextRequest) {
-  const identificador = (req.headers.get("x-forwarded-for")?.split(",")[0] ?? req.headers.get("x-real-ip") ?? "local").trim();
-  const agora = Date.now();
-  if (tentativas.size > 1_000) {
-    for (const [chave, valor] of tentativas) {
-      if (agora - valor.inicio >= JANELA_MS) tentativas.delete(chave);
-    }
-  }
-  const atual = tentativas.get(identificador);
-  if (!atual || agora - atual.inicio >= JANELA_MS) {
-    tentativas.set(identificador, { inicio: agora, total: 1 });
-    return true;
-  }
-  if (atual.total >= MAXIMO_POR_JANELA) return false;
-  atual.total += 1;
-  return true;
 }
 
 async function executarComLimite<T>(tarefa: () => Promise<T>): Promise<T> {
@@ -142,7 +124,7 @@ function normalizarResultado(item: ResultadoNominatim): ResultadoLocalidade | nu
 export async function GET(req: NextRequest) {
   const consulta = textoSeguro(req.nextUrl.searchParams.get("q"), 80);
   if (consulta.length < 2) return resposta({ resultados: [] });
-  if (!podePesquisar(req)) return resposta({ error: "Demasiadas pesquisas. Aguarda um momento." }, 429);
+  if (!(await dentroDoLimite(`pesquisa:${identificarPedido(req)}`, MAXIMO_POR_JANELA, JANELA_S))) return resposta({ error: "Demasiadas pesquisas. Aguarda um momento." }, 429);
 
   const chave = consulta.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-PT");
   const emCache = cacheMemoria.get(chave);

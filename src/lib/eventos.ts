@@ -78,7 +78,7 @@ export async function fetchFestasGeoJSON(): Promise<FestasGeoJSON> {
   const campos = "id,slug,nome,freguesia,categorias,concelho,concelho_slug,distrito,lng,lat,ano,data_inicio,data_fim,estado,cartaz_url,media_criticas,total_criticas,categoria_principal,formato_evento,tags_evento,tipo_recorrencia,padrao_recorrencia,dias_semana";
   const res = await fetch(`${url}/rest/v1/festas_mapa?select=${campos}&order=data_inicio`, {
     headers: { apikey: key, Authorization: `Bearer ${key}` },
-    next: { revalidate: 300 },
+    next: { revalidate: 300, tags: ["festas"] },
   });
   if (!res.ok) throw new Error(`Supabase respondeu ${res.status}`);
 

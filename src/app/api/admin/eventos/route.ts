@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { validarAdmin } from "@/lib/admin";
 import { origemValida } from "@/lib/http";
+import { emailEventoAprovado, emailEventoRejeitado } from "@/lib/email";
+import { perfilNotificavel } from "@/lib/notificar";
+import { revalidarEvento } from "@/lib/revalidar";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -61,6 +64,32 @@ export async function POST(req: Request) {
   const linhas = await resposta.json().catch(() => []);
   if (!Array.isArray(linhas) || linhas.length === 0) {
     return NextResponse.json({ error: "O evento já foi moderado." }, { status: 409 });
+  }
+
+  // A decisão tem de chegar ao público sem esperar pela expiração da cache.
+  const festaId = linhas[0]?.festa_id;
+  let concelhoSlug: string | undefined;
+  let festaSlug: string | undefined;
+  let nomeEvento = "O teu evento";
+  if (festaId) {
+    const dados = await fetch(
+      `${url}/rest/v1/festas?id=eq.${encodeURIComponent(festaId)}&select=nome,slug,concelhos(slug)`,
+      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }, cache: "no-store" },
+    ).then((r) => (r.ok ? r.json() : [])).catch(() => []);
+    festaSlug = dados?.[0]?.slug;
+    concelhoSlug = dados?.[0]?.concelhos?.slug;
+    if (dados?.[0]?.nome) nomeEvento = dados[0].nome;
+  }
+  revalidarEvento(concelhoSlug, festaSlug);
+
+  // Avisar o organizador da decisão. Falhar aqui não invalida a moderação.
+  const organizador = await perfilNotificavel(url, serviceKey, linhas[0]?.criado_por);
+  if (organizador) {
+    if (acao === "aprovar" && concelhoSlug && festaSlug) {
+      await emailEventoAprovado(organizador, nomeEvento, `/festas/${concelhoSlug}/${festaSlug}`);
+    } else if (acao === "rejeitar") {
+      await emailEventoRejeitado(organizador, nomeEvento, nota || null);
+    }
   }
 
   return NextResponse.json({ ok: true });

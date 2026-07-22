@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { CATEGORIAS_PRINCIPAIS, TIPOS_SUBLOCALIZACAO, nomeCategoriaPrincipal, normalizarDadosEvento } from "@/lib/criar-evento";
 import { origemValida } from "@/lib/http";
+import { revalidarEvento } from "@/lib/revalidar";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -284,6 +285,7 @@ export async function POST(req: Request) {
     ]);
 
     await admin.from("eventos_rascunho").delete().eq("id", rascunhoId).eq("user_id", user.id);
+    revalidarEvento(concelho.slug, festaAtual?.slug);
     return resposta({ ok: true, href: `/festas/${concelho.slug}/${festaAtual?.slug ?? ""}`, festaId: original.festa_id, edicaoId: original.id, atualizado: true });
   }
 
@@ -357,5 +359,6 @@ export async function POST(req: Request) {
   if (operacoes.some((operacao) => operacao.error)) { await desfazer(admin, festaId, rascunhoId, versao, user.id); return resposta({ error: "Não foi possível guardar todo o conteúdo do evento." }, 502); }
 
   await admin.from("eventos_rascunho").delete().eq("id", rascunhoId).eq("user_id", user.id);
+  revalidarEvento(concelho.slug, slugEvento);
   return resposta({ ok: true, href: `/festas/${concelho.slug}/${slugEvento}`, festaId, edicaoId: edicao.id }, 201);
 }

@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { validarAdmin } from "@/lib/admin";
 import { origemValida } from "@/lib/http";
+import { dentroDoLimite } from "@/lib/limites";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,27 +20,14 @@ const FORMATOS: Record<string, { extensao: string; assinatura: number[] }> = {
 const TAMANHO_MAXIMO = 2 * 1024 * 1024;
 const DIMENSAO_MAXIMA = 4096;
 const PIXEIS_MAXIMOS = 12_000_000;
-const JANELA_LIMITADOR_MS = 60_000;
+const JANELA_LIMITADOR_S = 60;
 const MAX_UPLOADS_JANELA = 8;
-const tentativas = new Map<string, { inicio: number; total: number }>();
 
 function clienteServidor() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const chave = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !chave) return null;
   return createClient(url, chave, { auth: { autoRefreshToken: false, persistSession: false } });
-}
-
-function podeCarregar(userId: string) {
-  const agora = Date.now();
-  const atual = tentativas.get(userId);
-  if (!atual || agora - atual.inicio >= JANELA_LIMITADOR_MS) {
-    tentativas.set(userId, { inicio: agora, total: 1 });
-    return true;
-  }
-  if (atual.total >= MAX_UPLOADS_JANELA) return false;
-  atual.total += 1;
-  return true;
 }
 
 function dimensoesImagem(tipo: string, bytes: Uint8Array): { largura: number; altura: number } | null {
@@ -90,7 +78,7 @@ export async function POST(req: Request) {
   if (!origemValida(req) || !contentType.startsWith("multipart/form-data") || (Number.isFinite(tamanhoPedido) && tamanhoPedido > TAMANHO_MAXIMO + 32_768)) return respostaJson({ error: "Pedido inválido." }, 400);
   const admin = await validarAdmin();
   if (!admin) return respostaJson({ error: "Sem permissões." }, 403);
-  if (!podeCarregar(admin.id)) return respostaJson({ error: "Aguarda um minuto antes de voltares a carregar imagens." }, 429);
+  if (!(await dentroDoLimite(`pins:${admin.id}`, MAX_UPLOADS_JANELA, JANELA_LIMITADOR_S))) return respostaJson({ error: "Aguarda um minuto antes de voltares a carregar imagens." }, 429);
   const supabase = clienteServidor();
   if (!supabase) return respostaJson({ error: "Configuração indisponível." }, 503);
 

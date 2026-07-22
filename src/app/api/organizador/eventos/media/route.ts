@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { origemValida } from "@/lib/http";
+import { dentroDoLimite as consumirLimite } from "@/lib/limites";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,6 @@ const FORMATOS: Record<string, { extensao: string; assinatura: number[] }> = {
 const MAXIMO = 8 * 1024 * 1024;
 const MAXIMO_DIMENSAO = 8192;
 const MAXIMO_PIXEIS = 32_000_000;
-const tentativas = new Map<string, { inicio: number; total: number }>();
 
 function resposta(corpo: object, status = 200) {
   return NextResponse.json(corpo, { status, headers: { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
@@ -25,15 +25,6 @@ function clienteServidor() {
   const chave = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !chave) return null;
   return createClient(url, chave, { auth: { autoRefreshToken: false, persistSession: false } });
-}
-
-function dentroDoLimite(userId: string) {
-  const agora = Date.now();
-  const atual = tentativas.get(userId);
-  if (!atual || agora - atual.inicio > 60_000) { tentativas.set(userId, { inicio: agora, total: 1 }); return true; }
-  if (atual.total >= 12) return false;
-  atual.total += 1;
-  return true;
 }
 
 function dimensoes(tipo: string, bytes: Uint8Array): { largura: number; altura: number } | null {
@@ -70,7 +61,7 @@ export async function POST(req: Request) {
   if (!user) return resposta({ error: "Inicia sessão para carregar imagens." }, 401);
   const { data: perfil } = await supabase.from("perfis").select("papel").eq("id", user.id).single();
   if (perfil?.papel !== "organizador" && perfil?.papel !== "admin") return resposta({ error: "Sem permissões." }, 403);
-  if (!dentroDoLimite(user.id)) return resposta({ error: "Fizeste demasiados carregamentos. Aguarda um minuto." }, 429);
+  if (!(await consumirLimite(`media:${user.id}`, 12, 60))) return resposta({ error: "Fizeste demasiados carregamentos. Aguarda um minuto." }, 429);
 
   let formulario: FormData;
   try { formulario = await req.formData(); } catch { return resposta({ error: "Ficheiro inválido." }, 400); }

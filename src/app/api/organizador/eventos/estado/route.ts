@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { origemValida } from "@/lib/http";
+import { emailEventoCancelado } from "@/lib/email";
+import { perfilNotificavel } from "@/lib/notificar";
+import { revalidarEvento } from "@/lib/revalidar";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +39,7 @@ export async function POST(req: Request) {
 
   // Confirma a posse antes de mexer (o admin pode gerir qualquer evento).
   const ehAdmin = perfil.papel === "admin";
-  let consulta = supabase.from("edicoes").select("id,estado,verificada_em").eq("id", edicaoId);
+  let consulta = supabase.from("edicoes").select("id,estado,verificada_em,criado_por,festas(nome,slug,concelhos(slug))").eq("id", edicaoId);
   if (!ehAdmin) consulta = consulta.eq("criado_por", user.id);
   const { data: edicao } = await consulta.maybeSingle();
   if (!edicao) return resposta({ error: "Evento não encontrado." }, 404);
@@ -68,6 +71,17 @@ export async function POST(req: Request) {
   if (!patch.ok) return resposta({ error: "Não foi possível atualizar o evento." }, 502);
   const linhas = await patch.json().catch(() => []);
   if (!Array.isArray(linhas) || linhas.length === 0) return resposta({ error: "Não foi possível atualizar o evento." }, 502);
+
+  // Um evento cancelado tem de sair do ar de imediato, não daqui a uma hora.
+  const festa = (edicao as { festas?: { nome?: string; slug?: string; concelhos?: { slug?: string } | null } | null }).festas;
+  revalidarEvento(festa?.concelhos?.slug, festa?.slug);
+
+  // Se fui eu, admin, a cancelar o evento de outra pessoa, ela tem de saber.
+  const dono = (edicao as { criado_por?: string | null }).criado_por;
+  if (acao === "cancelar" && dono && dono !== user.id) {
+    const organizador = await perfilNotificavel(url, serviceKey, dono);
+    if (organizador) await emailEventoCancelado(organizador, festa?.nome ?? "O teu evento");
+  }
 
   return resposta({ ok: true, estado: novoEstado });
 }
