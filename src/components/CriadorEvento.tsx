@@ -146,21 +146,33 @@ function resumoFinsDeSemana(inicio: string, fim: string, diasAtivos: number[]) {
   return `${finsDeSemana.size} fim${finsDeSemana.size === 1 ? "" : "s"} de semana · ${ocorrencias} ocorrência${ocorrencias === 1 ? "" : "s"}`;
 }
 
-export default function CriadorEvento({ concelhos, rascunhoInicial }: { concelhos: Concelho[]; rascunhoInicial: RascunhoEvento | null }) {
+export default function CriadorEvento({
+  concelhos,
+  rascunhoInicial,
+  edicaoOrigem = null,
+  modo = "novo",
+}: {
+  concelhos: Concelho[];
+  rascunhoInicial: RascunhoEvento | null;
+  edicaoOrigem?: string | null;
+  modo?: "novo" | "editar" | "duplicar";
+}) {
   const [passo, setPasso] = useState(0);
   const [novaTag, setNovaTag] = useState("");
   const [dados, setDados] = useState<DadosCriarEvento>(() => normalizarDadosEvento(rascunhoInicial?.dados ?? DADOS_EVENTO_VAZIOS));
-  const [estadoGravacao, setEstadoGravacao] = useState<EstadoGravacao>(rascunhoInicial ? "guardado" : "quieto");
+  const [estadoGravacao, setEstadoGravacao] = useState<EstadoGravacao>(rascunhoInicial?.id ? "guardado" : "quieto");
   const [erro, setErro] = useState("");
   const [aSubmeter, setASubmeter] = useState(false);
   const [resultado, setResultado] = useState<{ href: string; nome: string } | null>(null);
   const [aCarregarImagem, setACarregarImagem] = useState<"cartaz" | "foto" | null>(null);
   const [alvoMapa, setAlvoMapa] = useState<"principal" | string>("principal");
-  const idRef = useRef<string | null>(rascunhoInicial?.id ?? null);
+  const idRef = useRef<string | null>(rascunhoInicial?.id || null);
   const versaoRef = useRef(rascunhoInicial?.versao ?? 0);
   const filaRef = useRef<Promise<unknown>>(Promise.resolve());
   const primeiraRenderizacao = useRef(true);
-  const serializadoGuardado = useRef(rascunhoInicial ? JSON.stringify(normalizarDadosEvento(rascunhoInicial.dados)) : "");
+  // Ao editar/duplicar o formulário chega preenchido mas sem rascunho gravado:
+  // deixamos a marca vazia para a primeira gravação acontecer.
+  const serializadoGuardado = useRef(rascunhoInicial?.id ? JSON.stringify(normalizarDadosEvento(rascunhoInicial.dados)) : "");
 
   const concelho = useMemo(() => concelhos.find((item) => item.id === dados.concelhoId) ?? null, [concelhos, dados.concelhoId]);
 
@@ -179,7 +191,7 @@ export default function CriadorEvento({ concelhos, rascunhoInicial }: { concelho
       const resposta = await fetch("/api/organizador/eventos/rascunho", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: idRef.current, versao: versaoRef.current, nome: snapshot.nome.trim() || "Evento sem título", dados: snapshot }),
+        body: JSON.stringify({ id: idRef.current, versao: versaoRef.current, nome: snapshot.nome.trim() || "Evento sem título", dados: snapshot, edicaoOrigem }),
       });
       const corpo = await resposta.json().catch(() => ({}));
       if (!resposta.ok) throw new Error(corpo.error || "Não foi possível guardar o rascunho.");
@@ -369,9 +381,9 @@ export default function CriadorEvento({ concelhos, rascunhoInicial }: { concelho
               ["Conteúdo", `${[dados.descricao, dados.acercaAtivo, dados.programaAtivo, dados.informacoesAtivas, dados.contactosAtivos].filter(Boolean).length} secções preenchidas`],
               ["Recinto", `${dados.sublocalizacoes.filter((local) => local.nome.trim() && local.lat != null && local.lng != null).length} pontos adicionais`],
             ].map(([termo, valor]) => <div key={termo} className="grid gap-1 px-4 py-3 sm:grid-cols-[150px_1fr]"><dt className="text-xs font-bold text-[#1A2E4F]/45">{termo}</dt><dd className={`text-sm font-semibold ${valor === "Em falta" ? "text-[#EC2456]" : "text-[#102745]"}`}>{valor}</dd></div>)}</dl>
-            <div className="mt-5 rounded-lg bg-[#1A2E4F]/[0.035] p-4"><p className="text-sm font-bold text-[#102745]">O que acontece depois?</p><p className="mt-1 text-xs leading-relaxed text-[#1A2E4F]/60">A equipa revê os dados antes de colocar o evento no mapa. Enquanto estiver pendente, podes acompanhar o estado no perfil.</p></div>
+            <div className="mt-5 rounded-lg bg-[#1A2E4F]/[0.035] p-4"><p className="text-sm font-bold text-[#102745]">O que acontece depois?</p><p className="mt-1 text-xs leading-relaxed text-[#1A2E4F]/60">{modo === "editar" ? "As alterações ficam visíveis no evento assim que guardares. Se o evento ainda estiver em revisão, continua a aguardar aprovação." : "A equipa revê os dados antes de colocar o evento no mapa. Enquanto estiver pendente, podes acompanhar o estado no perfil."}</p></div>
             {errosObrigatorios().length > 0 && <p className="mt-4 text-sm font-semibold text-[#EC2456]">Falta confirmar: {errosObrigatorios().join(", ")}.</p>}
-            <button type="button" disabled={aSubmeter} onClick={() => void submeter()} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#EC2456] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#d11a47] disabled:cursor-not-allowed disabled:opacity-60">{aSubmeter ? "A enviar…" : "Enviar para revisão"}<Icone tipo="seta" /></button>
+            <button type="button" disabled={aSubmeter} onClick={() => void submeter()} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#EC2456] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#d11a47] disabled:cursor-not-allowed disabled:opacity-60">{aSubmeter ? (modo === "editar" ? "A guardar…" : "A enviar…") : (modo === "editar" ? "Guardar alterações" : "Enviar para revisão")}<Icone tipo="seta" /></button>
           </div>}
 
           {erro && <div role="alert" className="mt-5 rounded-lg border border-[#EC2456]/20 bg-[#EC2456]/[0.04] px-4 py-3 text-sm font-semibold text-[#C91D49]">{erro}</div>}

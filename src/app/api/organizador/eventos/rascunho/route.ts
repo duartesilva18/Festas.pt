@@ -32,6 +32,17 @@ export async function PUT(req: Request) {
   const nome = texto(corpo.nome, 140) || "Evento sem título";
   const agora = new Date().toISOString();
 
+  // Editar liga o rascunho a uma edição existente; só se for mesmo do utilizador
+  // (ou de qualquer um, se for admin). Caso contrário guarda como evento novo.
+  let edicaoOrigem: string | null = null;
+  if (typeof corpo.edicaoOrigem === "string" && UUID.test(corpo.edicaoOrigem)) {
+    let consulta = supabase.from("edicoes").select("id").eq("id", corpo.edicaoOrigem);
+    if (perfil.papel !== "admin") consulta = consulta.eq("criado_por", user.id);
+    const { data: edicao } = await consulta.maybeSingle();
+    if (!edicao) return resposta({ error: "Não podes editar este evento." }, 403);
+    edicaoOrigem = corpo.edicaoOrigem;
+  }
+
   if (typeof corpo.id === "string" && UUID.test(corpo.id)) {
     const versao = Number(corpo.versao);
     if (!Number.isInteger(versao) || versao < 1) return resposta({ error: "Versão do rascunho inválida." }, 409);
@@ -44,8 +55,22 @@ export async function PUT(req: Request) {
     return resposta({ rascunho: data });
   }
 
+  // Ao reabrir a edição do mesmo evento, reaproveita o rascunho já existente.
+  if (edicaoOrigem) {
+    const { data: existente } = await supabase.from("eventos_rascunho")
+      .select("id,versao").eq("user_id", user.id).eq("edicao_origem", edicaoOrigem).maybeSingle();
+    if (existente) {
+      const { data, error } = await supabase.from("eventos_rascunho")
+        .update({ nome, dados: corpo.dados, versao: existente.versao + 1, updated_at: agora })
+        .eq("id", existente.id).eq("user_id", user.id)
+        .select("id,versao,updated_at").maybeSingle();
+      if (error || !data) return resposta({ error: "Não foi possível guardar o rascunho." }, 502);
+      return resposta({ rascunho: data });
+    }
+  }
+
   const { data, error } = await supabase.from("eventos_rascunho")
-    .insert({ user_id: user.id, nome, dados: corpo.dados, versao: 1, updated_at: agora })
+    .insert({ user_id: user.id, nome, dados: corpo.dados, versao: 1, updated_at: agora, edicao_origem: edicaoOrigem })
     .select("id,versao,updated_at").single();
   if (error || !data) return resposta({ error: "Não foi possível criar o rascunho." }, 502);
   return resposta({ rascunho: data }, 201);

@@ -190,7 +190,7 @@ export async function POST(req: Request) {
   const { data: rascunho, error: erroBloqueio } = await admin.from("eventos_rascunho")
     .update({ versao: versao + 1, updated_at: new Date().toISOString() })
     .eq("id", rascunhoId).eq("user_id", user.id).eq("versao", versao)
-    .select("dados").maybeSingle();
+    .select("dados,edicao_origem").maybeSingle();
   if (erroBloqueio) return resposta({ error: "Não foi possível preparar a submissão." }, 502);
   if (!rascunho) return resposta({ error: "Este evento já foi enviado ou o rascunho mudou noutra janela." }, 409);
 
@@ -203,6 +203,90 @@ export async function POST(req: Request) {
 
   const { data: concelho } = await admin.from("concelhos").select("id,slug").eq("id", validado.dados.concelhoId).maybeSingle();
   if (!concelho) { await desfazer(admin, null, rascunhoId, versao, user.id); return resposta({ error: "O concelho selecionado não existe." }, 400); }
+
+  // ── Edição de um evento existente ────────────────────────────────────────
+  // O estado nunca é tocado: um evento publicado continua publicado (as
+  // entidades já foram verificadas) e um pendente continua a aguardar revisão.
+  if (rascunho.edicao_origem) {
+    const ehAdmin = perfil?.papel === "admin";
+    let consulta = admin.from("edicoes").select("id,festa_id,estado").eq("id", rascunho.edicao_origem);
+    if (!ehAdmin) consulta = consulta.eq("criado_por", user.id);
+    const { data: original } = await consulta.maybeSingle();
+    if (!original) {
+      await admin.from("eventos_rascunho").update({ versao, updated_at: new Date().toISOString() }).eq("id", rascunhoId).eq("user_id", user.id).eq("versao", versao + 1);
+      return resposta({ error: "Já não podes editar este evento." }, 403);
+    }
+
+    const { data: festaAtual } = await admin.from("festas").select("slug").eq("id", original.festa_id).maybeSingle();
+
+    const { error: erroFestaUpdate } = await admin.from("festas").update({
+      nome: validado.nome,
+      concelho_id: concelho.id,
+      freguesia: texto(validado.dados.freguesia, 100) || null,
+      descricao: texto(validado.dados.descricao, 8000, true) || null,
+      location: `POINT(${validado.lng} ${validado.lat})`,
+      categorias: validado.categoriasLegado,
+      categoria_principal: validado.categoriaPrincipal,
+      formato_evento: validado.formatoEvento || null,
+      tags_evento: validado.tags,
+      tipo_recorrencia: validado.dados.recorrencia,
+      local_nome: texto(validado.dados.localNome, 120) || null,
+      morada: texto(validado.dados.morada, 220) || null,
+      codigo_postal: validado.codigoPostal,
+      updated_at: new Date().toISOString(),
+    }).eq("id", original.festa_id);
+
+    const { error: erroEdicaoUpdate } = await admin.from("edicoes").update({
+      ano: Number(validado.inicio.slice(0, 4)),
+      data_inicio: validado.inicio,
+      data_fim: validado.fim,
+      padrao_recorrencia: validado.dados.recorrencia === "fins_de_semana" ? "fins_de_semana" : "continuo",
+      dias_semana: validado.diasSemana,
+      programa: validado.programaAgrupado.length ? validado.programaAgrupado : null,
+      cartaz_url: validado.cartazUrl,
+      fotos: validado.fotos,
+      caracteristicas: [...validado.categoriasLegado, ...validado.tags].slice(0, 12),
+      subtitulo: texto(validado.dados.subtitulo, 180) || null,
+      resumo: texto(validado.dados.resumo, 320, true) || null,
+      descricao: texto(validado.dados.descricao, 8000, true) || null,
+      acerca_de: validado.acerca,
+      informacoes_uteis: validado.informacoes,
+      contactos: validado.contactos,
+      links: validado.contactos.filter((item) => item.tipo === "site" || item.tipo === "rede_social"),
+      configuracao_card: { acerca: validado.dados.acercaAtivo, programa: validado.dados.programaAtivo, informacoes: validado.dados.informacoesAtivas, contactos: validado.dados.contactosAtivos },
+      updated_at: new Date().toISOString(),
+    }).eq("id", original.id);
+
+    if (erroFestaUpdate || erroEdicaoUpdate) {
+      await admin.from("eventos_rascunho").update({ versao, updated_at: new Date().toISOString() }).eq("id", rascunhoId).eq("user_id", user.id).eq("versao", versao + 1);
+      return resposta({ error: "Não foi possível guardar as alterações." }, 502);
+    }
+
+    // Substitui o conteúdo dependente pelo estado novo.
+    await Promise.all([
+      admin.from("edicoes_blocos").delete().eq("edicao_id", original.id),
+      admin.from("edicoes_media").delete().eq("edicao_id", original.id),
+      admin.from("edicoes_sublocalizacoes").delete().eq("edicao_id", original.id),
+    ]);
+    const blocosEdicao = [
+      ...(validado.dados.acercaAtivo && Object.values(validado.acerca).some(Boolean) ? [{ edicao_id: original.id, chave: "acerca", tipo: "acerca", titulo: validado.acerca.titulo || "Acerca", conteudo: validado.acerca, visivel: true, ordem: 20 }] : []),
+      ...validado.blocos.map((bloco) => ({ ...bloco, edicao_id: original.id })),
+    ];
+    const mediaEdicao = [
+      ...(validado.cartazUrl ? [{ edicao_id: original.id, tipo: "cartaz", url: validado.cartazUrl, ordem: 0 }] : []),
+      ...validado.fotos.map((url, ordem) => ({ edicao_id: original.id, tipo: "foto", url, ordem })),
+    ];
+    const locaisEdicao = validado.sublocalizacoes.map((local) => ({ ...local, edicao_id: original.id }));
+    await Promise.all([
+      blocosEdicao.length ? admin.from("edicoes_blocos").insert(blocosEdicao) : Promise.resolve({ error: null }),
+      mediaEdicao.length ? admin.from("edicoes_media").insert(mediaEdicao) : Promise.resolve({ error: null }),
+      locaisEdicao.length ? admin.from("edicoes_sublocalizacoes").insert(locaisEdicao) : Promise.resolve({ error: null }),
+    ]);
+
+    await admin.from("eventos_rascunho").delete().eq("id", rascunhoId).eq("user_id", user.id);
+    return resposta({ ok: true, href: `/festas/${concelho.slug}/${festaAtual?.slug ?? ""}`, festaId: original.festa_id, edicaoId: original.id, atualizado: true });
+  }
+
   let slugEvento = slug(validado.nome);
   const { data: colisao } = await admin.from("festas").select("id").eq("concelho_id", concelho.id).eq("slug", slugEvento).maybeSingle();
   if (colisao) slugEvento = `${slugEvento}-${crypto.randomUUID().slice(0, 6)}`;
