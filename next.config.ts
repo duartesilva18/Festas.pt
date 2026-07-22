@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
+// Em produção o Vercel Analytics é servido do próprio domínio
+// (/_vercel/insights/*), por isso 'self' chega. Em desenvolvimento o pacote
+// carrega a versão debug de va.vercel-scripts.com — só aí é preciso abrir.
 const scriptSrc = process.env.NODE_ENV === "development"
-  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com"
   : "script-src 'self' 'unsafe-inline'";
 
 const nextConfig: NextConfig = {
