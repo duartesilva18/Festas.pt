@@ -43,6 +43,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set());
   const [papel, setPapel] = useState<string | null>(null);
   const [promptAberto, setPromptAberto] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+
+  // Mostra um aviso guardado antes de um reload (ex.: depois de terminar sessão).
+  useEffect(() => {
+    let mensagem: string | null = null;
+    try {
+      mensagem = window.sessionStorage.getItem("achafestas:aviso");
+      if (mensagem) window.sessionStorage.removeItem("achafestas:aviso");
+    } catch {}
+    if (!mensagem) return;
+    setAviso(mensagem);
+    const t = window.setTimeout(() => setAviso(null), 2800);
+    return () => window.clearTimeout(t);
+  }, []);
+
   useEffect(() => {
     if (!promptAberto) return;
     const aoTecla = (e: KeyboardEvent) => { if (e.key === "Escape") setPromptAberto(false); };
@@ -111,6 +126,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUtilizador(null);
     setFavoritos(new Set());
     setPapel(null);
+    try {
+      window.sessionStorage.setItem("achafestas:aviso", "Sessão terminada. Até à próxima festa!");
+    } catch {}
     window.location.assign("/");
   }, [supabase]);
 
@@ -160,6 +178,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
+      {aviso && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="toast-entrada fixed bottom-6 left-1/2 z-[130] flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#102745] py-2.5 pl-3.5 pr-5 text-sm font-semibold text-white shadow-xl"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7ee2c0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+          {aviso}
+        </div>
+      )}
       {promptAberto && (
         <div
           onClick={() => setPromptAberto(false)}
