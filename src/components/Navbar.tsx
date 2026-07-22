@@ -134,7 +134,19 @@ function MenuUtilizador() {
   const { utilizador, aCarregar, papel, entrarComGoogle, terminarSessao } = useAuth();
   const [aberto, setAberto] = useState(false);
   const [semFoto, setSemFoto] = useState(false);
+  const [pendentes, setPendentes] = useState<{ eventos: number; criticas: number; pedidos: number; total: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Só o admin tem fila de moderação — para os restantes nem se pede.
+  useEffect(() => {
+    if (papel !== "admin") { setPendentes(null); return; }
+    let ativo = true;
+    fetch("/api/admin/pendentes", { cache: "no-store" })
+      .then((resposta) => (resposta.ok ? resposta.json() : null))
+      .then((dados) => { if (ativo && dados) setPendentes(dados); })
+      .catch(() => {});
+    return () => { ativo = false; };
+  }, [papel]);
 
   useEffect(() => {
     if (!aberto) return;
@@ -159,6 +171,7 @@ function MenuUtilizador() {
     );
   }
 
+  const porModerar = pendentes?.total ?? 0;
   const mostrarFoto = utilizador.avatarUrl && !semFoto;
   const avatar = mostrarFoto ? (
     // eslint-disable-next-line @next/next/no-img-element
@@ -185,11 +198,18 @@ function MenuUtilizador() {
       <button
         type="button"
         onClick={() => setAberto((v) => !v)}
-        aria-label="A minha conta"
+        aria-label={porModerar > 0 ? `A minha conta — ${porModerar} por moderar` : "A minha conta"}
         aria-expanded={aberto}
         className="flex cursor-pointer items-center gap-2 rounded-full py-1 pl-1 pr-1 text-sm font-semibold text-[#1A2E4F] transition hover:bg-[#1A2E4F]/[0.04] sm:pr-2.5"
       >
-        {avatar}
+        <span className="relative flex shrink-0">
+          {avatar}
+          {porModerar > 0 && (
+            <span className="absolute -right-1 -top-1 inline-flex min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-[#EC2456] px-1 text-[10px] font-bold leading-[14px] text-white">
+              {porModerar > 99 ? "99+" : porModerar}
+            </span>
+          )}
+        </span>
         <span className="hidden max-w-[120px] truncate sm:block">{primeiroUltimoNome(utilizador.nome, utilizador.email)}</span>
         <svg className={`hidden text-[#1A2E4F]/40 transition sm:block ${aberto ? "rotate-180" : ""}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
       </button>
@@ -219,7 +239,21 @@ function MenuUtilizador() {
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 4 6v6c0 4.4 3.4 8.4 8 9 4.6-.6 8-4.6 8-9V6l-8-3z" /><path d="m9 12 2 2 4-4" /></svg>
               Moderação
+              {porModerar > 0 && (
+                <span className="ml-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-[#EC2456] px-1 text-[10px] font-bold leading-[16px] text-white">
+                  {porModerar > 99 ? "99+" : porModerar}
+                </span>
+              )}
             </Link>
+          )}
+          {papel === "admin" && porModerar > 0 && pendentes && (
+            <p className="px-3 pb-2 text-[11px] leading-relaxed text-[#1A2E4F]/55">
+              {[
+                pendentes.eventos && `${pendentes.eventos} evento${pendentes.eventos === 1 ? "" : "s"}`,
+                pendentes.criticas && `${pendentes.criticas} crítica${pendentes.criticas === 1 ? "" : "s"}`,
+                pendentes.pedidos && `${pendentes.pedidos} pedido${pendentes.pedidos === 1 ? "" : "s"}`,
+              ].filter(Boolean).join(" · ")}
+            </p>
           )}
           <button
             type="button"
