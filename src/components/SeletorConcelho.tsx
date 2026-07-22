@@ -13,11 +13,13 @@ export default function SeletorConcelho({
   valor,
   onAlterar,
   className,
+  invalido,
 }: {
   concelhos: Concelho[];
   valor: string;
   onAlterar: (id: string) => void;
   className?: string;
+  invalido?: boolean;
 }) {
   const selecionado = useMemo(() => concelhos.find((c) => c.id === valor) ?? null, [concelhos, valor]);
   const [termo, setTermo] = useState("");
@@ -65,7 +67,11 @@ export default function SeletorConcelho({
           role="combobox"
           aria-expanded={aberto}
           aria-autocomplete="list"
-          className="mt-1.5 w-full rounded-lg border border-[#1A2E4F]/15 bg-white px-3 py-2.5 text-sm text-[#102745] outline-none transition placeholder:text-[#1A2E4F]/35 focus:border-[#EC2456]/55 focus:ring-2 focus:ring-[#EC2456]/10"
+          className={`mt-1.5 w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-[#102745] outline-none transition placeholder:text-[#1A2E4F]/35 ${
+            invalido
+              ? "border-[#c43d4b]/60 bg-[#c43d4b]/[0.03] focus:border-[#c43d4b] focus:ring-2 focus:ring-[#c43d4b]/15"
+              : "border-[#1A2E4F]/15 focus:border-[#EC2456]/55 focus:ring-2 focus:ring-[#EC2456]/10"
+          }`}
         />
         <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#1A2E4F]/35" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
       </div>
