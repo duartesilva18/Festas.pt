@@ -47,6 +47,12 @@ function CampoPesquisa({ className = "", opcoes = [] }: { className?: string; op
     } catch {}
   };
 
+  const removerRecente = (id: string) => {
+    const proximos = recentes.filter((recente) => recente.id !== id);
+    setRecentes(proximos);
+    try { window.localStorage.setItem(CHAVE_PESQUISAS_RECENTES, JSON.stringify(proximos.map((recente) => recente.id))); } catch {}
+  };
+
   const abrirFesta = (opcao: OpcaoPesquisa) => {
     guardarRecente(opcao);
     window.dispatchEvent(new CustomEvent("achafestas:abrir-festa", { detail: opcao.id }));
@@ -65,6 +71,7 @@ function CampoPesquisa({ className = "", opcoes = [] }: { className?: string; op
 
   const resultadosVisiveis = sugestoes.length > 0;
   const recentesVisiveis = aberto && !termo.trim() && recentes.length > 0;
+  const semResultadosVisivel = aberto && consulta.length >= 2 && sugestoes.length === 0;
 
   return (
     <form onSubmit={pesquisar} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setAberto(false); }} className={`relative flex items-center gap-2.5 rounded-full border border-[#1A2E4F]/15 bg-[#1A2E4F]/[0.03] px-4 py-2 transition focus-within:border-[#EC2456]/50 focus-within:bg-white ${className}`}>
@@ -81,7 +88,7 @@ function CampoPesquisa({ className = "", opcoes = [] }: { className?: string; op
         placeholder="Procura uma festa, vila ou concelho…"
         className="w-full bg-transparent text-sm text-[#1A2E4F] outline-none placeholder:text-[#1A2E4F]/40"
       />
-      {(resultadosVisiveis || recentesVisiveis) && (
+      {(resultadosVisiveis || recentesVisiveis || semResultadosVisivel) && (
         <ul className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-[#1A2E4F]/10 bg-white py-1.5 shadow-xl">
           {recentesVisiveis && <li className="flex items-center justify-between px-3.5 pb-1 pt-1.5"><span className="text-[10px] font-bold uppercase tracking-wide text-[#1A2E4F]/45">Pesquisas recentes</span><button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { setRecentes([]); window.localStorage.removeItem(CHAVE_PESQUISAS_RECENTES); }} className="cursor-pointer text-[10px] font-bold text-[#EC2456] transition hover:text-[#d11a47]">Limpar</button></li>}
           {(resultadosVisiveis ? sugestoes : recentes).map((opcao) => (
@@ -100,9 +107,10 @@ function CampoPesquisa({ className = "", opcoes = [] }: { className?: string; op
                   </>}
                 </span>
                 <span className="min-w-0"><span className="block truncate text-sm font-semibold text-[#102745]">{opcao.nome}</span><span className="block truncate text-[11px] text-[#1A2E4F]/55">{opcao.localizacao}</span></span>
-              </button>
+              </button>{recentesVisiveis && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => removerRecente(opcao.id)} aria-label={`Remover ${opcao.nome} do histórico`} className="mr-2 flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-[#1A2E4F]/40 transition hover:bg-[#EC2456]/10 hover:text-[#EC2456]"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M6 6l12 12M18 6 6 18" /></svg></button>}
             </li>
           ))}
+          {semResultadosVisivel && <li className="px-3.5 py-4"><p className="text-sm font-semibold text-[#102745]">Sem resultados para “{termo.trim()}”</p><p className="mt-1 text-xs text-[#1A2E4F]/55">Tenta o nome da festa, uma vila ou um concelho.</p><button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => setTermo("")} className="mt-2 cursor-pointer text-xs font-bold text-[#EC2456] transition hover:text-[#d11a47]">Limpar pesquisa</button></li>}
         </ul>
       )}
     </form>

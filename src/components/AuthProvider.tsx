@@ -53,9 +53,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (mensagem) window.sessionStorage.removeItem("achafestas:aviso");
     } catch {}
     if (!mensagem) return;
-    setAviso(mensagem);
-    const t = window.setTimeout(() => setAviso(null), 2800);
-    return () => window.clearTimeout(t);
+    const mostrar = window.setTimeout(() => setAviso(mensagem), 0);
+    const esconder = window.setTimeout(() => setAviso(null), 2800);
+    return () => { window.clearTimeout(mostrar); window.clearTimeout(esconder); };
   }, []);
 
   useEffect(() => {

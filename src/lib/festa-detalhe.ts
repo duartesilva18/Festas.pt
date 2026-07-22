@@ -1,5 +1,5 @@
 import { cache } from "react";
-import type { EstadoTemporal } from "@/lib/eventos";
+import { estadoTemporal, type EstadoTemporal } from "@/lib/eventos";
 
 export type ProgramaDia = { dia: string; eventos: { hora?: string; titulo: string }[] };
 export type SubLocalizacao = {
@@ -17,6 +17,11 @@ export type FestaDetalhe = {
   freguesia: string | null;
   descricao: string | null;
   categorias: string[];
+  categoriaPrincipal: string;
+  formatoEvento: string | null;
+  tagsEvento: string[];
+  tipoRecorrencia: "anual" | "unica" | "fins_de_semana";
+  diasSemana: number[];
   concelho: string;
   concelhoSlug: string;
   distrito: string;
@@ -53,17 +58,6 @@ function parseEWKBPoint(hex: string | null): [number, number] | null {
     : null;
 }
 
-function estadoTemporal(inicio: string, fim: string | null): EstadoTemporal {
-  const hoje = new Date();
-  const dInicio = new Date(inicio + "T00:00:00");
-  const dFim = new Date((fim ?? inicio) + "T23:59:59");
-  if (dInicio <= hoje && hoje <= dFim) return "a_decorrer";
-  const seteDias = new Date(hoje);
-  seteDias.setDate(seteDias.getDate() + 7);
-  if (dInicio > hoje && dInicio <= seteDias) return "em_breve";
-  return "futuro";
-}
-
 type LinhaEdicao = {
   ano: number;
   data_inicio: string;
@@ -74,7 +68,9 @@ type LinhaEdicao = {
   fotos: string[] | null;
   caracteristicas: string[] | null;
   fonte_url: string | null;
-  edicoes_sublocalizacoes: { id: string; nome: string; tipo: SubLocalizacao["tipo"]; descricao: string | null; location: string }[] | null;
+  padrao_recorrencia: "continuo" | "fins_de_semana";
+  dias_semana: number[] | null;
+  edicoes_sublocalizacoes: { id: string; nome: string; tipo: SubLocalizacao["tipo"]; descricao: string | null; location: string; estado: "rascunho" | "confirmada" | "rejeitada"; visivel: boolean }[] | null;
 };
 
 // Escolhe a edição mais relevante: a próxima confirmada; senão a mais recente.
@@ -99,9 +95,9 @@ export const fetchFestaDetalhe = cache(async function fetchFestaDetalhe(
   if (!url || !key) throw new Error("Variáveis NEXT_PUBLIC_SUPABASE_* em falta");
 
   const select =
-    "nome,slug,freguesia,descricao,categorias,location," +
+    "nome,slug,freguesia,descricao,categorias,categoria_principal,formato_evento,tags_evento,tipo_recorrencia,location," +
     "concelhos!inner(nome,slug,distrito)," +
-    "edicoes(ano,data_inicio,data_fim,estado,programa,cartaz_url,fotos,caracteristicas,fonte_url,edicoes_sublocalizacoes(id,nome,tipo,descricao,location,ordem))";
+    "edicoes(ano,data_inicio,data_fim,estado,programa,cartaz_url,fotos,caracteristicas,fonte_url,padrao_recorrencia,dias_semana,edicoes_sublocalizacoes(id,nome,tipo,descricao,location,ordem,estado,visivel))";
   const query =
     `${url}/rest/v1/festas?slug=eq.${encodeURIComponent(slug)}` +
     `&concelhos.slug=eq.${encodeURIComponent(concelho)}` +
@@ -128,6 +124,11 @@ export const fetchFestaDetalhe = cache(async function fetchFestaDetalhe(
     freguesia: f.freguesia,
     descricao: f.descricao,
     categorias: Array.isArray(f.categorias) ? f.categorias : [],
+    categoriaPrincipal: typeof f.categoria_principal === "string" ? f.categoria_principal : "festa_popular",
+    formatoEvento: typeof f.formato_evento === "string" ? f.formato_evento : null,
+    tagsEvento: Array.isArray(f.tags_evento) ? f.tags_evento.filter((tag: unknown): tag is string => typeof tag === "string") : [],
+    tipoRecorrencia: f.tipo_recorrencia === "fins_de_semana" || f.tipo_recorrencia === "unica" ? f.tipo_recorrencia : "anual",
+    diasSemana: Array.isArray(edicao.dias_semana) ? edicao.dias_semana.filter((dia): dia is number => typeof dia === "number") : [],
     concelho: f.concelhos.nome,
     concelhoSlug: f.concelhos.slug,
     distrito: f.concelhos.distrito,
@@ -137,7 +138,7 @@ export const fetchFestaDetalhe = cache(async function fetchFestaDetalhe(
     dataInicio: edicao.data_inicio,
     dataFim: edicao.data_fim,
     estado: edicao.estado,
-    estadoTemporal: estadoTemporal(edicao.data_inicio, edicao.data_fim),
+    estadoTemporal: estadoTemporal(edicao.data_inicio, edicao.data_fim, new Date(), f.tipo_recorrencia, edicao.dias_semana ?? []),
     programa: edicao.programa,
     cartazUrl: edicao.cartaz_url,
     fotos: Array.isArray(edicao.fotos) ? edicao.fotos : [],
@@ -146,6 +147,7 @@ export const fetchFestaDetalhe = cache(async function fetchFestaDetalhe(
       : [],
     fonteUrl: edicao.fonte_url,
     subLocalizacoes: (edicao.edicoes_sublocalizacoes ?? [])
+      .filter((local) => local.estado === "confirmada" && local.visivel)
       .map((local) => {
         const ponto = parseEWKBPoint(local.location);
         return ponto ? { id: local.id, nome: local.nome, tipo: local.tipo, descricao: local.descricao, lng: ponto[0], lat: ponto[1] } : null;

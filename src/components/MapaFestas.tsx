@@ -1,20 +1,23 @@
 "use client";
 
-import Image from "next/image";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState, type ComponentPropsWithoutRef, type ForwardRefExoticComponent, type RefAttributes } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentPropsWithoutRef, type CSSProperties, type ForwardRefExoticComponent, type PointerEvent as ReactPointerEvent, type RefAttributes } from "react";
+import CartazFallback from "@/components/CartazFallback";
 import type FestaMapBase from "@/components/FestaMap";
 import type { FestaMapHandle } from "@/components/FestaMap";
 import Galeria from "@/components/Galeria";
 import { useAuth } from "@/components/AuthProvider";
+import { nomeCategoriaPrincipal } from "@/lib/criar-evento";
 import type { FestasGeoJSON } from "@/lib/eventos";
 import {
   CORES,
   ETIQUETAS,
-  formatarDatas,
+  formatarDiaPrograma,
+  formatarLocalizacao,
   distanciaKm,
   formatarKm,
   estimativaTempo,
+  resumoDatas,
   type Coords,
   type FestaSelecionada,
 } from "@/lib/festa-ui";
@@ -28,6 +31,11 @@ type Painel =
   | { modo: "fechado" }
   | { modo: "detalhe"; festa: FestaSelecionada; deLista: boolean; detalhe: DetalheExtra | null }
   | { modo: "lista"; festas: FestaSelecionada[]; titulo?: string };
+
+type FiltroMapa = "todas" | "a_decorrer" | "em_breve" | "futuro";
+type NivelSheet = "minimo" | "medio" | "completo";
+const ALTURA_SHEET: Record<NivelSheet, string> = { minimo: "34%", medio: "68%", completo: "100%" };
+const ORDEM_SHEET: NivelSheet[] = ["minimo", "medio", "completo"];
 
 function BotaoFechar({ onClick }: { onClick: () => void }) {
   return (
@@ -259,6 +267,7 @@ function DetalheFesta({
   const [aCarregarCriticas, setACarregarCriticas] = useState(true);
   const [avisoGuardar, setAvisoGuardar] = useState<{ mensagem: string; erro?: boolean } | null>(null);
   const [aGuardar, setAGuardar] = useState(false);
+  const [mostrarRecintoNoMapa, setMostrarRecintoNoMapa] = useState(true);
   const conteudoRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -268,9 +277,9 @@ function DetalheFesta({
   }, [avisoGuardar]);
 
   useEffect(() => {
-    aoMostrarSublocalizacoes(extra?.subLocalizacoes ?? []);
+    aoMostrarSublocalizacoes(mostrarRecintoNoMapa ? (extra?.subLocalizacoes ?? []) : []);
     return () => aoMostrarSublocalizacoes([]);
-  }, [extra, aoMostrarSublocalizacoes]);
+  }, [extra, mostrarRecintoNoMapa, aoMostrarSublocalizacoes]);
 
   useEffect(() => {
     let ativo = true;
@@ -296,6 +305,8 @@ function DetalheFesta({
   );
   const descricao = extra?.descricao;
   const caracteristicas = extra?.caracteristicas ?? [];
+  const localizacao = formatarLocalizacao(p.freguesia, p.concelho, p.distrito);
+  const datas = resumoDatas(p.data_inicio, p.data_fim, p.tipo_recorrencia, p.dias_semana);
   const abrirDirecoes = () => {
     const destino = `${lat},${lng}`;
     const telemovel = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -348,17 +359,13 @@ function DetalheFesta({
         {cartaz ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={cartaz} alt={`Cartaz de ${p.nome}`} decoding="async" className="h-40 w-full object-cover" />
-        ) : (
-          <div className="flex h-40 w-full items-center justify-center bg-gradient-to-b from-[#F97B16] to-[#EC2456]">
-            <Image src="/logo-mark.svg" alt="" width={60} height={60} className="opacity-90 drop-shadow" />
-          </div>
-        )}
+        ) : <CartazFallback nome={p.nome} categoria={p.categoria_principal} className="h-40 w-full" />}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#102745]/80 via-[#102745]/25 to-transparent px-4 pb-3 pt-8 text-white">
           <h2 className="pr-36 text-lg font-bold leading-tight drop-shadow-sm">{p.nome}</h2>
-          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 pr-24 text-xs"><span className="min-w-0 truncate text-white/80">{p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho} · {p.distrito}</span>{typeof p.media_criticas === "number" && p.total_criticas > 0 && <span className="shrink-0 font-bold text-[#FFD166] drop-shadow-sm">{p.media_criticas.toFixed(1).replace(".", ",")} ★</span>}</div>
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 pr-24 text-xs"><span className="min-w-0 truncate text-white/80">{localizacao}</span>{typeof p.media_criticas === "number" && p.total_criticas > 0 && <span className="shrink-0 font-bold text-[#FFD166] drop-shadow-sm">{p.media_criticas.toFixed(1).replace(".", ",")} ★</span>}</div>
           <div className="mt-2 flex flex-wrap items-center gap-1.5 pr-20 text-[11px] font-semibold">
-            <span className="text-white">{formatarDatas(p.data_inicio, p.data_fim)} · {p.ano}</span>
-            {p.categorias?.map((categoria) => <span key={categoria} className="capitalize text-white/75 before:mr-1.5 before:content-['·']">{categoria}</span>)}
+            <span className="text-white"><span className="block">{datas.principal}</span>{datas.secundario && <span className="mt-0.5 block text-[10px] font-medium text-white/75">{datas.secundario}</span>}</span>
+            <span className="text-white/75 before:mr-1.5 before:content-['·']">{p.formato_evento || nomeCategoriaPrincipal(p.categoria_principal)}</span>
           </div>
         </div>
         <span
@@ -413,7 +420,7 @@ function DetalheFesta({
               <path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" />
             </svg>
           </span>
-          {p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho} · {p.distrito}
+          {localizacao}
         </p>
 
         {minhaLoc ? (
@@ -440,12 +447,12 @@ function DetalheFesta({
 
         {subLocalizacoes.length > 0 && (
           <section className="mt-5 border-t border-[#1A2E4F]/10 pt-4">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-[#1A2E4F]/45">No recinto</h3>
-            <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="flex items-center justify-between gap-3"><h3 className="text-xs font-bold uppercase tracking-wide text-[#1A2E4F]/45">No recinto</h3><button type="button" onClick={() => setMostrarRecintoNoMapa((visivel) => !visivel)} aria-pressed={mostrarRecintoNoMapa} className="cursor-pointer text-[11px] font-bold text-[#EC2456] transition hover:text-[#d11a47]">{mostrarRecintoNoMapa ? "Ocultar no mapa" : "Mostrar no mapa"}</button></div>
+            <div className="mt-2 grid grid-cols-2 gap-2 max-[360px]:grid-cols-1">
               {subLocalizacoes.map((local) => (
                 <button key={local.id} type="button" onClick={() => aoFocarSublocalizacao(local)} className="group flex min-h-20 items-center gap-2.5 rounded-lg border border-[#1A2E4F]/10 p-3 text-left transition hover:border-[#EC2456]/35 hover:bg-[#EC2456]/[0.035]">
                   <IconeSublocalizacao tipo={local.tipo} />
-                  <span className="line-clamp-2 text-[13px] font-semibold leading-snug text-[#102745] transition group-hover:text-[#EC2456]">{local.nome}</span>
+                  <span className="min-w-0 whitespace-normal break-words text-[13px] font-semibold leading-snug text-[#102745] transition group-hover:text-[#EC2456]">{local.nome}</span>
                 </button>
               ))}
             </div>
@@ -489,7 +496,7 @@ function DetalheFesta({
             <div className="mt-2 space-y-3">
               {extra.programa.map((dia) => (
                 <div key={dia.dia}>
-                  <p className="text-[13px] font-bold text-[#EC2456]">{dia.dia}</p>
+                  <p className="text-[13px] font-bold capitalize text-[#EC2456]">{formatarDiaPrograma(dia.dia)}</p>
                   <ul className="mt-1 space-y-1">
                     {dia.eventos.map((ev, i) => (
                       <li key={i} className="flex gap-2.5 text-[13px] text-[#1A2E4F]/75">
@@ -524,7 +531,7 @@ function DetalheFesta({
             ) : (
               <p className="mt-3 rounded-lg bg-[#f3f6f8] p-4 text-sm text-[#1A2E4F]/65">O cartaz desta edição será publicado em breve.</p>
             )}
-            <div className="mt-4 rounded-xl border border-[#1A2E4F]/10 bg-[#f8fafb] px-4 py-3"><p className="text-[11px] font-bold uppercase tracking-wide text-[#1A2E4F]/45">Marca na agenda</p><p className="mt-1 text-sm font-semibold text-[#102745]">{formatarDatas(p.data_inicio, p.data_fim)} · {p.ano}</p></div>
+            <div className="mt-4 rounded-xl border border-[#1A2E4F]/10 bg-[#f8fafb] px-4 py-3"><p className="text-[11px] font-bold uppercase tracking-wide text-[#1A2E4F]/45">Marca na agenda</p><p className="mt-1 text-sm font-semibold text-[#102745]">{datas.principal}</p>{datas.secundario && <p className="mt-0.5 text-xs text-[#1A2E4F]/55">{datas.secundario}</p>}</div>
           </section>
         )}
 
@@ -590,15 +597,15 @@ function DetalheFesta({
             <dl className="space-y-3 border-t border-[#1A2E4F]/10 pt-4">
               <div className="flex gap-3">
                 <dt className="mt-0.5 shrink-0 text-[#007c91]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg></dt>
-                <dd className="text-sm text-[#1A2E4F]/80"><span className="font-semibold text-[#102745]">Onde</span><br />{p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho}, {p.distrito}</dd>
+                <dd className="text-sm text-[#1A2E4F]/80"><span className="font-semibold text-[#102745]">Onde</span><br />{localizacao}</dd>
               </div>
               <div className="flex gap-3">
                 <dt className="mt-0.5 shrink-0 text-[#007c91]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></svg></dt>
-                <dd className="text-sm text-[#1A2E4F]/80"><span className="font-semibold text-[#102745]">Quando</span><br />{formatarDatas(p.data_inicio, p.data_fim)} de {p.ano}</dd>
+                <dd className="text-sm text-[#1A2E4F]/80"><span className="font-semibold text-[#102745]">Quando</span><br />{datas.principal}{datas.secundario && <><br /><span className="text-xs text-[#1A2E4F]/55">{datas.secundario}</span></>}</dd>
               </div>
               <div className="flex gap-3">
                 <dt className="mt-0.5 shrink-0 text-[#007c91]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l10-2v13" /><circle cx="6" cy="18" r="2" /><circle cx="16" cy="16" r="2" /></svg></dt>
-                <dd className="text-sm text-[#1A2E4F]/80"><span className="font-semibold text-[#102745]">Tipo</span><br /><span className="capitalize">{p.categorias?.length ? p.categorias.join(", ") : "Festa popular"}</span></dd>
+                <dd className="text-sm text-[#1A2E4F]/80"><span className="font-semibold text-[#102745]">Tipo</span><br /><span>{nomeCategoriaPrincipal(p.categoria_principal)}{p.formato_evento ? ` · ${p.formato_evento}` : ""}</span>{p.tags_evento?.length > 0 && <span className="mt-1 block text-xs text-[#1A2E4F]/55">{p.tags_evento.join(" · ")}</span>}</dd>
               </div>
             </dl>
           </section>
@@ -689,6 +696,8 @@ function ListaFestas({
           const p = f.props;
           const cor = CORES[p.estado_temporal];
           const estaGuardado = guardado(p.id);
+          const localizacao = formatarLocalizacao(p.freguesia, p.concelho, p.distrito);
+          const datas = resumoDatas(p.data_inicio, p.data_fim, p.tipo_recorrencia, p.dias_semana);
           return (
             <li key={p.id}>
               <button
@@ -708,11 +717,7 @@ function ListaFestas({
                       decoding="async"
                       className="h-full w-full object-cover transition group-hover:scale-105"
                     />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#F97B16] to-[#EC2456]">
-                      <Image src="/logo-mark.svg" alt="" width={40} height={40} className="opacity-80" />
-                    </div>
-                  )}
+                  ) : <CartazFallback nome={p.nome} categoria={p.categoria_principal} />}
                   <span
                     className="absolute left-2.5 top-2.5 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide shadow-sm"
                     style={{ color: cor }}
@@ -731,18 +736,15 @@ function ListaFestas({
                   <div className="flex items-center justify-between gap-2"><span className="min-w-0 truncate text-sm font-bold text-[#1A2E4F]">{p.nome}</span><span className="flex shrink-0 items-center gap-1.5">{typeof p.media_criticas === "number" && p.total_criticas > 0 && <span className="text-xs font-bold text-[#F97B16]">{p.media_criticas.toFixed(1).replace(".", ",")} ★</span>}{estaGuardado && <span aria-label="Festa guardada" title="Festa guardada" className="flex size-5 items-center justify-center rounded-full bg-[#EC2456]/10 text-[#EC2456]"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg></span>}</span></div>
                   <span className="mt-0.5 flex items-center gap-1 truncate text-xs text-[#1A2E4F]/60">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EC2456" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg>
-                    {p.freguesia ? `${p.freguesia}, ` : ""}{p.concelho} · {p.distrito}
+                    {localizacao}
                   </span>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     <span className="inline-flex items-center gap-1 rounded bg-[#1A2E4F]/5 px-2 py-0.5 text-[11px] font-semibold text-[#1A2E4F]">
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v4M16 2v4M3 10h18" /><rect x="5" y="4" width="14" height="16" rx="1" /></svg>
-                      {formatarDatas(p.data_inicio, p.data_fim)}
+                      {datas.principal}
                     </span>
-                    {p.categorias?.slice(0, 2).map((c) => (
-                      <span key={c} className="rounded bg-[#1A2E4F]/5 px-2 py-0.5 text-[11px] font-medium capitalize text-[#1A2E4F]/65">
-                        {c}
-                      </span>
-                    ))}
+                    {datas.secundario && <span className="basis-full pl-0.5 text-[10px] font-medium text-[#1A2E4F]/50">{datas.secundario}</span>}
+                    <span className="rounded bg-[#1A2E4F]/5 px-2 py-0.5 text-[11px] font-medium text-[#1A2E4F]/65">{p.formato_evento || nomeCategoriaPrincipal(p.categoria_principal)}</span>
                   </div>
                 </div>
                 {aCarregarId === p.id && (
@@ -760,17 +762,75 @@ function ListaFestas({
   );
 }
 
+function FiltrosMapa({ filtro, onChange }: { filtro: FiltroMapa; onChange: (filtro: FiltroMapa) => void }) {
+  const opcoes: { id: FiltroMapa; texto: string; cor: string }[] = [
+    { id: "todas", texto: "Todas", cor: "#1A2E4F" },
+    { id: "a_decorrer", texto: "A decorrer", cor: "#EC2456" },
+    { id: "em_breve", texto: "7 dias", cor: "#F97B16" },
+    { id: "futuro", texto: "Mais tarde", cor: "#8B93A7" },
+  ];
+
+  return (
+    <div className="absolute inset-x-3 top-3 z-[5] flex justify-between rounded-lg bg-white/95 p-1 shadow-md ring-1 ring-[#1A2E4F]/10 backdrop-blur sm:inset-x-auto sm:right-4 sm:top-4" aria-label="Filtrar festas no mapa">
+      {opcoes.map((opcao) => (
+        <button key={opcao.id} type="button" onClick={() => onChange(opcao.id)} aria-pressed={filtro === opcao.id} className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-2 text-[11px] font-bold transition ${filtro === opcao.id ? "bg-[#1A2E4F]/[0.06] text-[#102745]" : "text-[#1A2E4F]/55 hover:text-[#102745]"}`}>
+          <span className="size-1.5 rounded-full" style={{ backgroundColor: opcao.cor }} />
+          {opcao.texto}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
   const [painel, setPainel] = useState<Painel>({ modo: "fechado" });
+  const [filtroMapa, setFiltroMapa] = useState<FiltroMapa>("todas");
+  const [festaNoUrl, setFestaNoUrl] = useState<string | null>(null);
+  const [erroMapa, setErroMapa] = useState(false);
+  const [mapaPronto, setMapaPronto] = useState(false);
   const [lista, setLista] = useState<FestaSelecionada[]>([]);
   const [tituloLista, setTituloLista] = useState<string | undefined>();
   const [aFechar, setAFechar] = useState(false);
   const [aCarregarDetalhe, setACarregarDetalhe] = useState<string | null>(null);
   const [minhaLoc, setMinhaLoc] = useState<Coords | null>(null);
+  const [nivelSheet, setNivelSheet] = useState<NivelSheet>("medio");
   const pediuLoc = useRef(false);
+  const arrastoSheet = useRef<{ y: number; nivel: NivelSheet; moveu: boolean } | null>(null);
+  const ignorarCliqueSheet = useRef(false);
   const mapaRef = useRef<FestaMapHandle>(null);
   const pedidoDetalheRef = useRef(0);
   const detalhesEmCache = useRef(new Map<string, DetalheEmCache>());
+  const detalheUrlProcessadoRef = useRef<string | null | undefined>(undefined);
+
+  const mostrarSublocalizacoesNoMapa = useCallback((locais: { lng: number; lat: number; nome: string; tipo: string }[]) => {
+    if (mapaPronto) mapaRef.current?.mostrarSublocalizacoes(locais);
+  }, [mapaPronto]);
+
+  const dadosVisiveis = useMemo(() => filtroMapa === "todas"
+    ? dados
+    : { ...dados, features: dados.features.filter((festa) => festa.properties.estado_temporal === filtroMapa || (painel.modo === "detalhe" && festa.properties.id === painel.festa.props.id)) }, [dados, filtroMapa, painel]);
+
+  const sincronizarUrl = useCallback((idFesta: string | null, filtro: FiltroMapa, historico: "push" | "replace") => {
+    const url = new URL(window.location.href);
+    if (idFesta) url.searchParams.set("festa", idFesta);
+    else url.searchParams.delete("festa");
+    if (filtro === "todas") url.searchParams.delete("estado");
+    else url.searchParams.set("estado", filtro);
+    window.history[`${historico}State`](null, "", `${url.pathname}${url.search}${url.hash}`);
+    setFestaNoUrl(idFesta);
+  }, []);
+
+  useEffect(() => {
+    const lerUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const estado = params.get("estado");
+      setFestaNoUrl(params.get("festa"));
+      setFiltroMapa(estado === "a_decorrer" || estado === "em_breve" || estado === "futuro" ? estado : "todas");
+    };
+    lerUrl();
+    window.addEventListener("popstate", lerUrl);
+    return () => window.removeEventListener("popstate", lerUrl);
+  }, []);
 
   const pedirLocalizacao = useCallback(() => {
     if (pediuLoc.current || !("geolocation" in navigator)) return;
@@ -782,7 +842,7 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
     );
   }, []);
 
-  const abrirDetalhe = useCallback(async (festa: FestaSelecionada, deLista: boolean) => {
+  const abrirDetalhe = useCallback(async (festa: FestaSelecionada, deLista: boolean, atualizarHistorico = true) => {
     const pedido = pedidoDetalheRef.current + 1;
     pedidoDetalheRef.current = pedido;
     setACarregarDetalhe(festa.props.id);
@@ -802,12 +862,31 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
     if (pedido !== pedidoDetalheRef.current) return;
     setACarregarDetalhe(null);
     setAFechar(false);
+    setNivelSheet("completo");
     setPainel({ modo: "detalhe", festa, deLista, detalhe });
-  }, []);
+    if (atualizarHistorico) sincronizarUrl(festa.props.id, filtroMapa, "push");
+  }, [filtroMapa, sincronizarUrl]);
 
   useEffect(() => {
     if (painel.modo === "detalhe") mapaRef.current?.focarFesta(painel.festa.lngLat);
   }, [painel]);
+
+  useEffect(() => {
+    if (festaNoUrl === detalheUrlProcessadoRef.current) return;
+    detalheUrlProcessadoRef.current = festaNoUrl;
+    if (!festaNoUrl) {
+      if (painel.modo !== "fechado" && !aFechar) {
+        mapaRef.current?.reporVista();
+        // Sincroniza o painel com o parâmetro externo da URL.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setPainel({ modo: "fechado" });
+      }
+      return;
+    }
+    if (painel.modo === "detalhe" && painel.festa.props.id === festaNoUrl) return;
+    const feature = dados.features.find((festa) => festa.properties.id === festaNoUrl);
+    if (feature) void abrirDetalhe({ props: feature.properties, lngLat: feature.geometry.coordinates as [number, number] }, false, false);
+  }, [aFechar, abrirDetalhe, dados.features, festaNoUrl, painel]);
 
   useEffect(() => {
     const pesquisar = (evento: Event) => {
@@ -816,7 +895,7 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
       const consulta = termo.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
       const resultados = dados.features.flatMap((feature) => {
         const p = feature.properties;
-        const texto = [p.nome, p.freguesia, p.concelho, p.distrito, ...(p.categorias ?? [])]
+        const texto = [p.nome, p.freguesia, p.concelho, p.distrito, nomeCategoriaPrincipal(p.categoria_principal), p.formato_evento, ...(p.tags_evento ?? []), ...(p.categorias ?? [])]
           .filter(Boolean)
           .join(" ")
           .normalize("NFD")
@@ -829,6 +908,7 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
       setLista(resultados);
       setTituloLista(resultados.length ? `${resultados.length} resultado${resultados.length === 1 ? "" : "s"}` : "Sem resultados");
       setAFechar(false);
+      setNivelSheet("medio");
       setPainel({ modo: "lista", festas: resultados, titulo: resultados.length ? `${resultados.length} resultado${resultados.length === 1 ? "" : "s"}` : "Sem resultados" });
     };
     window.addEventListener("achafestas:pesquisa", pesquisar);
@@ -849,19 +929,62 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
     return () => window.removeEventListener("achafestas:abrir-festa", abrirDaPesquisa);
   }, [dados, abrirDetalhe]);
 
-  function fechar() {
+  const fechar = useCallback(() => {
     setAFechar(true);
     mapaRef.current?.reporVista();
+    sincronizarUrl(null, filtroMapa, "replace");
     setTimeout(() => {
       setPainel({ modo: "fechado" });
       setAFechar(false);
     }, 200);
-  }
+  }, [filtroMapa, sincronizarUrl]);
+
+  useEffect(() => {
+    if (painel.modo === "fechado") return;
+    const aoTeclado = (evento: KeyboardEvent) => {
+      if (evento.key === "Escape") fechar();
+    };
+    window.addEventListener("keydown", aoTeclado);
+    return () => window.removeEventListener("keydown", aoTeclado);
+  }, [fechar, painel.modo]);
 
   function abrir(novo: Painel) {
     setAFechar(false);
+    setNivelSheet(novo.modo === "detalhe" ? "completo" : "medio");
     setPainel(novo);
   }
+
+  const iniciarArrastoSheet = (evento: ReactPointerEvent<HTMLButtonElement>) => {
+    evento.currentTarget.setPointerCapture(evento.pointerId);
+    arrastoSheet.current = { y: evento.clientY, nivel: nivelSheet, moveu: false };
+  };
+
+  const moverSheet = (evento: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!arrastoSheet.current || Math.abs(evento.clientY - arrastoSheet.current.y) < 8) return;
+    arrastoSheet.current.moveu = true;
+  };
+
+  const terminarArrastoSheet = (evento: ReactPointerEvent<HTMLButtonElement>) => {
+    const inicio = arrastoSheet.current;
+    arrastoSheet.current = null;
+    if (!inicio) return;
+    ignorarCliqueSheet.current = inicio.moveu;
+    const indice = ORDEM_SHEET.indexOf(inicio.nivel);
+    const delta = evento.clientY - inicio.y;
+    if (delta > 45) setNivelSheet(ORDEM_SHEET[Math.max(0, indice - 1)]);
+    else if (delta < -45) setNivelSheet(ORDEM_SHEET[Math.min(ORDEM_SHEET.length - 1, indice + 1)]);
+  };
+
+  const alternarNivelSheet = () => {
+    if (ignorarCliqueSheet.current) { ignorarCliqueSheet.current = false; return; }
+    const indice = ORDEM_SHEET.indexOf(nivelSheet);
+    setNivelSheet(ORDEM_SHEET[(indice + 1) % ORDEM_SHEET.length]);
+  };
+
+  const alterarFiltroMapa = (proximoFiltro: FiltroMapa) => {
+    setFiltroMapa(proximoFiltro);
+    sincronizarUrl(painel.modo === "detalhe" ? painel.festa.props.id : null, proximoFiltro, "replace");
+  };
 
   const chaveConteudo =
     painel.modo === "detalhe" ? `detalhe-${painel.festa.props.id}` : painel.modo;
@@ -870,7 +993,10 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
     <>
       <FestaMap
         ref={mapaRef}
-        dados={dados}
+        dados={dadosVisiveis}
+        festaSelecionadaId={painel.modo === "detalhe" ? painel.festa.props.id : null}
+        aoCarregar={() => { setErroMapa(false); setMapaPronto(true); }}
+        aoErro={() => { setErroMapa(true); setMapaPronto(false); }}
         aoEscolherFesta={(festa) => void abrirDetalhe(festa, false)}
         aoEscolherGrupo={(festas) => {
           setLista(festas);
@@ -878,12 +1004,15 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
           abrir({ modo: "lista", festas });
         }}
       />
+      {painel.modo !== "detalhe" && <FiltrosMapa filtro={filtroMapa} onChange={alterarFiltroMapa} />}
+      {erroMapa && <div role="status" className="absolute inset-x-4 top-4 z-20 mx-auto flex max-w-sm items-center justify-between gap-3 rounded-lg bg-white px-3 py-2.5 text-xs font-semibold text-[#1A2E4F] shadow-lg ring-1 ring-[#1A2E4F]/10"><span>Não foi possível carregar o mapa.</span><button type="button" onClick={() => window.location.reload()} className="cursor-pointer text-[#EC2456] transition hover:text-[#d11a47]">Tentar de novo</button></div>}
 
       {painel.modo !== "fechado" && (
         <div
-          className={`painel-entrada absolute z-10 overflow-hidden bg-white shadow-2xl ring-1 ring-[#1A2E4F]/10 inset-x-0 bottom-0 h-[68vh] rounded-t-xl sm:inset-x-auto sm:bottom-4 sm:left-4 sm:top-4 sm:h-auto sm:w-[430px] sm:rounded-lg ${aFechar ? "painel-saida" : ""}`}
+          className={`painel-sheet painel-entrada absolute inset-x-0 bottom-0 z-10 overflow-hidden rounded-t-xl bg-white shadow-2xl ring-1 ring-[#1A2E4F]/10 sm:inset-x-auto sm:bottom-4 sm:left-4 sm:top-4 sm:h-auto sm:w-[430px] sm:rounded-lg ${aFechar ? "painel-saida" : ""}`}
+          style={{ "--sheet-altura": ALTURA_SHEET[nivelSheet] } as CSSProperties}
         >
-          <div className="absolute left-1/2 top-2 z-20 h-1 w-9 -translate-x-1/2 rounded-full bg-[#1A2E4F]/20 sm:hidden" />
+          <button type="button" onPointerDown={iniciarArrastoSheet} onPointerMove={moverSheet} onPointerUp={terminarArrastoSheet} onPointerCancel={() => { arrastoSheet.current = null; }} onClick={alternarNivelSheet} aria-label={`Painel ${nivelSheet}. Arrasta para redimensionar`} className="absolute left-1/2 top-1.5 z-30 flex h-4 w-12 -translate-x-1/2 touch-none items-center justify-center rounded-full bg-white/80 shadow-sm backdrop-blur sm:hidden"><span className="h-1 w-7 rounded-full bg-[#1A2E4F]/30" /></button>
           <div key={chaveConteudo} className="conteudo-entrada h-full">
             {painel.modo === "detalhe" ? (
               <DetalheFesta
@@ -898,7 +1027,7 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
                 }}
                 aoFechar={fechar}
                 aoFocarSublocalizacao={(local) => mapaRef.current?.focarSublocalizacao(local)}
-                aoMostrarSublocalizacoes={(locais) => mapaRef.current?.mostrarSublocalizacoes(locais)}
+                aoMostrarSublocalizacoes={mostrarSublocalizacoesNoMapa}
               />
             ) : (
               <ListaFestas

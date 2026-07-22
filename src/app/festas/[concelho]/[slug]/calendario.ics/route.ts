@@ -22,6 +22,16 @@ function escaparTextoIcs(valor: string): string {
     .replace(/,/g, "\\,");
 }
 
+function primeiraOcorrencia(inicio: string, fim: string, diasSemana: number[]) {
+  const cursor = new Date(`${inicio}T12:00:00Z`);
+  const limite = new Date(`${fim}T12:00:00Z`);
+  for (let i = 0; i < 7 && cursor <= limite; i += 1) {
+    if (diasSemana.includes(cursor.getUTCDay() || 7)) return cursor.toISOString().slice(0, 10);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return inicio;
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ concelho: string; slug: string }> },
@@ -30,8 +40,11 @@ export async function GET(
   const festa = await fetchFestaDetalhe(concelho, slug);
   if (!festa) return new Response("Não encontrado", { status: 404 });
 
-  const dtStart = formatarData(festa.dataInicio);
-  const dtEnd = fimExclusivo(festa.dataFim ?? festa.dataInicio);
+  const recorrente = festa.tipoRecorrencia === "fins_de_semana" && Boolean(festa.dataFim);
+  const diasSemana = festa.diasSemana.length ? festa.diasSemana : [6, 7];
+  const inicioReal = recorrente ? primeiraOcorrencia(festa.dataInicio, festa.dataFim!, diasSemana) : festa.dataInicio;
+  const dtStart = formatarData(inicioReal);
+  const dtEnd = fimExclusivo(recorrente ? inicioReal : (festa.dataFim ?? festa.dataInicio));
   const local = [festa.freguesia, festa.concelho, festa.distrito, "Portugal"]
     .filter(Boolean)
     .join(", ");
@@ -46,6 +59,7 @@ export async function GET(
     `DTSTAMP:${dtStart}T000000Z`,
     `DTSTART;VALUE=DATE:${dtStart}`,
     `DTEND;VALUE=DATE:${dtEnd}`,
+    ...(recorrente ? [`RRULE:FREQ=WEEKLY;BYDAY=${diasSemana.map((dia) => ({ 5: "FR", 6: "SA", 7: "SU" })[dia as 5 | 6 | 7]).filter(Boolean).join(",")};UNTIL=${formatarData(festa.dataFim!)}T235959Z`] : []),
     `SUMMARY:${escaparTextoIcs(festa.nome)}`,
     `LOCATION:${escaparTextoIcs(local)}`,
     `DESCRIPTION:${descricao}`,

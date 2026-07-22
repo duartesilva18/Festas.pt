@@ -3,11 +3,12 @@ import Link from "next/link";
 const ABAS = [
   ["/admin/criticas", "Críticas"],
   ["/admin/pedidos", "Pedidos"],
+  ["/admin/pins", "Pins do mapa"],
 ] as const;
 
-export default function AdminTabs({ ativa }: { ativa: "/admin/criticas" | "/admin/pedidos" }) {
+export default function AdminTabs({ ativa }: { ativa: (typeof ABAS)[number][0] }) {
   return (
-    <nav className="mt-5 grid grid-cols-2 rounded-lg bg-[#1A2E4F]/[0.045] p-1">
+    <nav className="mt-5 grid grid-cols-3 rounded-lg bg-[#1A2E4F]/[0.045] p-1">
       {ABAS.map(([href, texto]) => (
         <Link
           key={href}

@@ -87,6 +87,10 @@ summary {
 }
 
 @media (max-width: 639px) {
+  .painel-sheet {
+    height: var(--sheet-altura, 68%);
+    transition: height 0.28s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
   .painel-entrada {
     animation: sheet-entrada 0.3s cubic-bezier(0.2, 0.8, 0.3, 1);
   }
@@ -94,6 +98,12 @@ summary {
     opacity: 1;
     transform: translateY(100%);
     transition: transform 0.25s ease-in;
+  }
+}
+
+@media (min-width: 640px) {
+  .painel-sheet {
+    height: auto;
   }
 }
 
@@ -213,39 +223,60 @@ summary {
 .mapa-sublocalizacao {
   position: relative;
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   place-items: center;
-  border: 2px solid #fff;
+  border: 2.5px solid var(--pin-cor);
   border-radius: 999px;
-  background: var(--pin-cor);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--pin-cor) 45%, transparent);
-  color: #fff;
+  background: #fff;
+  box-shadow: 0 3px 10px #1027452e, 0 1px 2px #1027451f;
+  color: var(--pin-cor);
   cursor: pointer;
+  isolation: isolate;
+  padding: 0;
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
 .mapa-sublocalizacao::after {
   position: absolute;
-  bottom: -6px;
+  bottom: -5.5px;
   left: 50%;
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid #fff;
-  border-bottom: 2px solid #fff;
-  background: var(--pin-cor);
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--pin-cor);
+  border-bottom: 2px solid var(--pin-cor);
+  background: #fff;
   content: "";
   transform: translateX(-50%) rotate(45deg);
   z-index: -1;
 }
 
-.mapa-sublocalizacao span {
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1;
+.mapa-sublocalizacao-icone {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+}
+
+.mapa-sublocalizacao-icone svg {
+  width: 20px;
+  height: 20px;
+}
+
+.mapa-sublocalizacao-imagem {
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
 }
 
 .mapa-sublocalizacao:hover {
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--pin-cor) 58%, transparent);
-  transform: scale(1.12);
+  box-shadow: 0 5px 14px #1027453d, 0 0 0 4px color-mix(in srgb, var(--pin-cor) 15%, transparent);
+  transform: translateY(-1px) scale(1.08);
+}
+
+.mapa-sublocalizacao:focus-visible,
+.mapa-sublocalizacao-ativa {
+  box-shadow: 0 5px 14px #1027453d, 0 0 0 5px color-mix(in srgb, var(--pin-cor) 20%, transparent);
+  outline: none;
+  transform: translateY(-1px) scale(1.1);
 }

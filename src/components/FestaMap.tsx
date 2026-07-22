@@ -5,6 +5,13 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { FestasGeoJSON, FestaFeature } from "@/lib/eventos";
 import { CORES, type FestaSelecionada } from "@/lib/festa-ui";
+import {
+  criarElementoSublocalizacao,
+  PIN_RECINTO,
+  pinFestaSVG,
+  pinGrupoSVG,
+  tipoSublocalizacao,
+} from "@/lib/mapa-pins";
 import mascaraPortugal from "@/data/mascara-portugal.json";
 
 const PORTUGAL_BOUNDS: [[number, number], [number, number]] = [
@@ -16,9 +23,19 @@ const PORTUGAL_BOUNDS: [[number, number], [number, number]] = [
 // mas nao e possivel navegar para la.
 const CENTRO_LIMITES = { lngMin: -9.4, lngMax: -6.7, latMin: 37.0, latMax: 42.0 };
 
+// A máscara tem um rectângulo exterior e Portugal como recorte: é a forma mais
+// fiável de sombrear toda a Espanha sem depender de uma costa simplificada.
+const geometriaMascara = mascaraPortugal.features[0]?.geometry as GeoJSON.Polygon | undefined;
+const fronteiraPortugal = geometriaMascara?.coordinates[1] ?? [];
+
 function paddingPainel(): maplibregl.PaddingOptions {
   if (window.matchMedia("(max-width: 639px)").matches) {
-    return { bottom: Math.min(360, Math.round(window.innerHeight * 0.42)), left: 16, right: 16, top: 16 };
+    return {
+      bottom: Math.min(window.innerHeight - 150, Math.round(window.innerHeight * 0.7)),
+      left: 32,
+      right: 32,
+      top: 28,
+    };
   }
   return { left: 450, top: 24, right: 24, bottom: 24 };
 }
@@ -40,28 +57,49 @@ function vigiarCentro(map: maplibregl.Map) {
   });
 }
 
-function pinSVG(cor: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256">
-    <path d="M32 4 C18.7 4 9 14.2 9 27.2 C9 42 27 56.8 31 59.8 a1.6 1.6 0 0 0 2 0 C37 56.8 55 42 55 27.2 C55 14.2 45.3 4 32 4 Z" fill="${cor}"/>
-    <circle cx="32" cy="27" r="13" fill="#FFF8F0"/>
-    <path d="M32 17 l2.2 6.2 6.2 2.2 -6.2 2.2 -2.2 6.2 -2.2 -6.2 -6.2 -2.2 6.2 -2.2 Z" fill="${cor === "#F97B16" ? "#1A2E4F" : "#F97B16"}"/>
-    <circle cx="22" cy="20" r="1.6" fill="#1A2E4F"/>
-    <circle cx="42" cy="20" r="1.6" fill="#1A2E4F"/>
-    <circle cx="24" cy="35" r="1.6" fill="#1A2E4F"/>
-    <circle cx="40" cy="35" r="1.6" fill="#1A2E4F"/>
-  </svg>`;
+function mostrarPinosFesta(map: maplibregl.Map, mostrar: boolean) {
+  if (map.getLayer("festas-pontos")) {
+    map.setLayoutProperty("festas-pontos", "visibility", mostrar ? "visible" : "none");
+  }
 }
 
-function carregarPin(map: maplibregl.Map, id: string, cor: string): Promise<void> {
+function carregarSVG(map: maplibregl.Map, id: string, svg: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const img = new window.Image(256, 256);
+    const img = new window.Image();
     img.onload = () => {
       if (!map.hasImage(id)) map.addImage(id, img, { pixelRatio: 4 });
       resolve();
     };
     img.onerror = reject;
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(pinSVG(cor))}`;
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   });
+}
+
+function carregarPin(map: maplibregl.Map, id: string, cor: string): Promise<void> {
+  return carregarSVG(map, id, pinFestaSVG(cor));
+}
+
+function carregarImagem(map: maplibregl.Map, id: string, origem: string, largura = 256, altura = 256): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const imagem = new window.Image(largura, altura);
+    imagem.onload = () => {
+      if (!map.hasImage(id)) map.addImage(id, imagem, { pixelRatio: 4 });
+      resolve();
+    };
+    imagem.onerror = () => reject(new Error(`Não foi possível carregar ${origem}`));
+    imagem.src = origem;
+  });
+}
+
+async function obterPinsPersonalizados(): Promise<Record<string, string>> {
+  try {
+    const resposta = await fetch("/api/mapa/pins", { cache: "no-store" });
+    if (!resposta.ok) return {};
+    const dados = await resposta.json() as { pins?: { tipo: string; imagem_url: string }[] };
+    return Object.fromEntries((dados.pins ?? []).filter((pin) => typeof pin.tipo === "string" && typeof pin.imagem_url === "string").map((pin) => [pin.tipo, pin.imagem_url]));
+  } catch {
+    return {};
+  }
 }
 
 function paraSelecao(f: GeoJSON.Feature): FestaSelecionada {
@@ -75,6 +113,14 @@ function paraSelecao(f: GeoJSON.Feature): FestaSelecionada {
     }
   }
   if (!Array.isArray(props.categorias)) props.categorias = [];
+  if (typeof props.tags_evento === "string") {
+    try {
+      props.tags_evento = JSON.parse(props.tags_evento);
+    } catch {
+      props.tags_evento = [];
+    }
+  }
+  if (!Array.isArray(props.tags_evento)) props.tags_evento = [];
   return {
     props,
     lngLat: (f.geometry as GeoJSON.Point).coordinates as [number, number],
@@ -85,6 +131,9 @@ type Props = {
   dados: FestasGeoJSON;
   aoEscolherFesta?: (sel: FestaSelecionada) => void;
   aoEscolherGrupo?: (sels: FestaSelecionada[]) => void;
+  festaSelecionadaId?: string | null;
+  aoCarregar?: () => void;
+  aoErro?: () => void;
 };
 
 export type FestaMapHandle = {
@@ -95,25 +144,24 @@ export type FestaMapHandle = {
   mostrarSublocalizacoes: (locais: { lng: number; lat: number; nome: string; tipo: string }[]) => void;
 };
 
-const PIN_RECINTO: Record<string, { icone: string; cor: string; descricao: string }> = {
-  estacionamento: { icone: "P", cor: "#2B6CB0", descricao: "Estacionamento" },
-  entrada: { icone: "→", cor: "#20856D", descricao: "Entrada" },
-  palco: { icone: "♬", cor: "#7C4DAD", descricao: "Palco" },
-  after: { icone: "✦", cor: "#5E3A9E", descricao: "After" },
-  bar: { icone: "☕", cor: "#B75B25", descricao: "Bar" },
-  wc: { icone: "WC", cor: "#167F99", descricao: "Casas de banho" },
-  primeiros_socorros: { icone: "+", cor: "#C43D4B", descricao: "Primeiros socorros" },
-  outro: { icone: "•", cor: "#64748B", descricao: "Ponto no recinto" },
+const TIPO_ADMIN_RECINTO: Record<string, string> = {
+  estacionamento: "estacionamento",
+  entrada: "entrada_principal",
+  wc: "casas_banho",
+  palco: "palco_after",
+  after: "palco_after",
 };
 
-function criarPinRecinto(tipo: string, nome: string) {
-  const configuracao = PIN_RECINTO[tipo] ?? PIN_RECINTO.outro;
-  const elemento = document.createElement("div");
-  elemento.className = "mapa-sublocalizacao";
-  elemento.style.setProperty("--pin-cor", configuracao.cor);
-  elemento.setAttribute("aria-label", `${configuracao.descricao}: ${nome}`);
-  elemento.setAttribute("title", `${configuracao.descricao}: ${nome}`);
-  elemento.innerHTML = `<span>${configuracao.icone}</span>`;
+function criarPinRecinto(tipo: string, nome: string, imagem?: string) {
+  const elemento = criarElementoSublocalizacao(tipo, nome);
+  if (imagem) {
+    elemento.replaceChildren();
+    const figura = document.createElement("img");
+    figura.src = imagem;
+    figura.alt = "";
+    figura.className = "mapa-sublocalizacao-imagem";
+    elemento.append(figura);
+  }
   return elemento;
 }
 
@@ -122,7 +170,7 @@ function popupSublocalizacao(local: { nome: string; tipo: string; lat: number; l
   conteudo.className = "mapa-popup-recinto";
   const tipo = document.createElement("span");
   tipo.className = "mapa-popup-tipo";
-  tipo.textContent = (PIN_RECINTO[local.tipo] ?? PIN_RECINTO.outro).descricao;
+  tipo.textContent = PIN_RECINTO[tipoSublocalizacao(local.tipo)].descricao;
   const titulo = document.createElement("strong");
   titulo.className = "mapa-popup-titulo";
   titulo.textContent = local.nome;
@@ -137,22 +185,73 @@ function popupSublocalizacao(local: { nome: string; tipo: string; lat: number; l
 }
 
 const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
-  { dados, aoEscolherFesta, aoEscolherGrupo },
+  { dados, aoEscolherFesta, aoEscolherGrupo, festaSelecionadaId, aoCarregar, aoErro },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const marcadoresSublocalizacaoRef = useRef<maplibregl.Marker[]>([]);
+  const sublocalizacoesPendentesRef = useRef<{ lng: number; lat: number; nome: string; tipo: string }[]>([]);
+  const mapaProntoRef = useRef(false);
+  const pinsPersonalizadosRef = useRef<Record<string, string>>({});
+  const dadosRef = useRef(dados);
   const escolherFestaRef = useRef(aoEscolherFesta);
   const escolherGrupoRef = useRef(aoEscolherGrupo);
+  const aoCarregarRef = useRef(aoCarregar);
+  const aoErroRef = useRef(aoErro);
+  const festaSelecionadaIdRef = useRef(festaSelecionadaId);
+  dadosRef.current = dados;
   escolherFestaRef.current = aoEscolherFesta;
   escolherGrupoRef.current = aoEscolherGrupo;
+  aoCarregarRef.current = aoCarregar;
+  aoErroRef.current = aoErro;
+  festaSelecionadaIdRef.current = festaSelecionadaId;
+
+  function aplicarSublocalizacoes(
+    map: maplibregl.Map,
+    locais: { lng: number; lat: number; nome: string; tipo: string }[],
+  ) {
+    marcadoresSublocalizacaoRef.current.forEach((marcador) => marcador.remove());
+    mostrarPinosFesta(map, locais.length === 0);
+    marcadoresSublocalizacaoRef.current = locais.map((local) => {
+      const elemento = criarPinRecinto(local.tipo, local.nome, pinsPersonalizadosRef.current[TIPO_ADMIN_RECINTO[local.tipo]]);
+      elemento.addEventListener("click", () => {
+        map.easeTo({
+          center: [local.lng, local.lat],
+          zoom: Math.max(map.getZoom(), 17),
+          padding: paddingPainel(),
+          duration: 550,
+          essential: true,
+        });
+      });
+      return new maplibregl.Marker({ element: elemento, anchor: "bottom" })
+        .setLngLat([local.lng, local.lat])
+        .setPopup(new maplibregl.Popup({ offset: 26, focusAfterOpen: false }).setDOMContent(popupSublocalizacao(local)))
+        .addTo(map);
+    });
+    if (locais.length > 0) {
+      const limites = locais.reduce(
+        (bounds, local) => bounds.extend([local.lng, local.lat]),
+        new maplibregl.LngLatBounds(),
+      );
+      map.fitBounds(limites, {
+        padding: paddingPainel(),
+        maxZoom: 17.5,
+        duration: 650,
+        essential: true,
+      });
+    }
+  }
 
   useImperativeHandle(ref, () => ({
     reporVista() {
+      sublocalizacoesPendentesRef.current = [];
       marcadoresSublocalizacaoRef.current.forEach((marcador) => marcador.remove());
       marcadoresSublocalizacaoRef.current = [];
-      mapRef.current?.fitBounds(PORTUGAL_BOUNDS, {
+      const map = mapRef.current;
+      if (!map) return;
+      mostrarPinosFesta(map, true);
+      map.fitBounds(PORTUGAL_BOUNDS, {
         padding: 24,
         duration: 900,
         essential: true,
@@ -162,13 +261,16 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
       const map = mapRef.current;
       if (!map) return;
       map.stop();
+      mostrarPinosFesta(map, true);
       map.easeTo({ center: lngLat, zoom: Math.max(map.getZoom(), 15), padding: paddingPainel(), duration: 700, essential: true });
     },
     afastarFesta(lngLat) {
       const map = mapRef.current;
       if (!map) return;
+      sublocalizacoesPendentesRef.current = [];
       marcadoresSublocalizacaoRef.current.forEach((marcador) => marcador.remove());
       marcadoresSublocalizacaoRef.current = [];
+      mostrarPinosFesta(map, true);
       map.easeTo({ center: lngLat, zoom: 12, padding: paddingPainel(), duration: 650, essential: true });
     },
     focarSublocalizacao(local) {
@@ -179,27 +281,27 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
       map.easeTo({ center: [local.lng, local.lat], zoom: Math.max(map.getZoom(), 16), padding: paddingPainel(), duration: 600 });
     },
     mostrarSublocalizacoes(locais) {
+      sublocalizacoesPendentesRef.current = locais;
       const map = mapRef.current;
-      if (!map) return;
-      marcadoresSublocalizacaoRef.current.forEach((marcador) => marcador.remove());
-      marcadoresSublocalizacaoRef.current = locais.map((local) => {
-        const elemento = criarPinRecinto(local.tipo, local.nome);
-        elemento.addEventListener("click", () => {
-          map.easeTo({
-            center: [local.lng, local.lat],
-            zoom: Math.max(map.getZoom(), 17),
-            padding: paddingPainel(),
-            duration: 550,
-            essential: true,
-          });
-        });
-        return new maplibregl.Marker({ element: elemento, anchor: "bottom" })
-          .setLngLat([local.lng, local.lat])
-          .setPopup(new maplibregl.Popup({ offset: 26 }).setDOMContent(popupSublocalizacao(local)))
-          .addTo(map);
-      });
+      if (!map || !mapaProntoRef.current) return;
+      aplicarSublocalizacoes(map, locais);
     },
   }));
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const source = map?.getSource("festas") as maplibregl.GeoJSONSource | undefined;
+    if (source) source.setData(dados);
+  }, [dados]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.getLayer("festas-pontos")) return;
+    map.setPaintProperty("festas-pontos", "icon-opacity", festaSelecionadaId
+      ? ["case", ["==", ["get", "id"], festaSelecionadaId], 1, 0.42]
+      : 1,
+    );
+  }, [festaSelecionadaId]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -217,6 +319,8 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
       attributionControl: false,
     });
     mapRef.current = map;
+
+    map.once("error", () => aoErroRef.current?.());
 
     map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
     vigiarCentro(map);
@@ -242,33 +346,55 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
         }
       }
 
+      const pinsPersonalizados = await obterPinsPersonalizados();
+      pinsPersonalizadosRef.current = pinsPersonalizados;
+      const carregarPinConfiguravel = (id: string, tipo: string, cor: string) => pinsPersonalizados[tipo]
+        ? carregarImagem(map, id, pinsPersonalizados[tipo], 256, 288).catch(() => carregarPin(map, id, cor))
+        : carregarPin(map, id, cor);
       await Promise.all([
-        carregarPin(map, "pin-a-decorrer", CORES.a_decorrer),
-        carregarPin(map, "pin-em-breve", CORES.em_breve),
-        carregarPin(map, "pin-futuro", CORES.futuro),
+        carregarPinConfiguravel("pin-a-decorrer", "festa_a_decorrer", CORES.a_decorrer),
+        carregarPinConfiguravel("pin-em-breve", "festa_em_breve", CORES.em_breve),
+        carregarPinConfiguravel("pin-futuro", "festa_mais_tarde", CORES.futuro),
+        pinsPersonalizados.grupo_festas
+          ? carregarImagem(map, "pin-grupo-festas", pinsPersonalizados.grupo_festas)
+            .catch(() => carregarSVG(map, "pin-grupo-festas", pinGrupoSVG()))
+          : carregarSVG(map, "pin-grupo-festas", pinGrupoSVG()),
       ]);
 
-      // Vela sobre tudo o que nao e Portugal continental (esbate a Espanha).
-      map.addSource("mascara", {
-        type: "geojson",
-        data: mascaraPortugal as GeoJSON.FeatureCollection,
-      });
+      // A máscara cobre tudo fora de Portugal. A camada de água real, colocada
+      // logo por cima, devolve o Atlântico e os rios à sua cor normal.
+      map.addSource("sombra-espanha", { type: "geojson", data: mascaraPortugal as GeoJSON.FeatureCollection });
       map.addLayer({
-        id: "mascara-fora",
+          id: "sombra-espanha",
+          type: "fill",
+          source: "sombra-espanha",
+          paint: { "fill-color": "#C9DDF6", "fill-opacity": 0.58 },
+        });
+      map.addLayer({
+        id: "agua-sobre-sombra",
         type: "fill",
-        source: "mascara",
-        paint: { "fill-color": "#EDF1F5", "fill-opacity": 0.7 },
+        source: "openmaptiles",
+        "source-layer": "water",
+        filter: ["!=", ["get", "brunnel"], "tunnel"],
+        paint: { "fill-color": "rgb(158,189,255)" },
       });
-      map.addLayer({
-        id: "fronteira-pt",
-        type: "line",
-        source: "mascara",
-        paint: { "line-color": "#EC2456", "line-width": 1.2, "line-opacity": 0.45 },
-      });
+
+      if (fronteiraPortugal.length > 0) {
+        map.addSource("fronteira-portugal", {
+          type: "geojson",
+          data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [fronteiraPortugal] } },
+        });
+        map.addLayer({
+          id: "fronteira-portugal",
+          type: "line",
+          source: "fronteira-portugal",
+          paint: { "line-color": "#EC2456", "line-width": 1.25, "line-opacity": 0.58 },
+        });
+      }
 
       map.addSource("festas", {
         type: "geojson",
-        data: dados,
+        data: dadosRef.current,
         cluster: true,
         clusterMaxZoom: 11,
         clusterRadius: 46,
@@ -276,14 +402,14 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
 
       map.addLayer({
         id: "clusters",
-        type: "circle",
+        type: "symbol",
         source: "festas",
         filter: ["has", "point_count"],
-        paint: {
-          "circle-color": "#EC2456",
-          "circle-radius": ["step", ["get", "point_count"], 18, 10, 24, 30, 30],
-          "circle-stroke-width": 3,
-          "circle-stroke-color": "#FFF8F0",
+        layout: {
+          "icon-image": "pin-grupo-festas",
+          "icon-anchor": "center",
+          "icon-size": ["step", ["get", "point_count"], 0.56, 10, 0.64, 30, 0.72],
+          "icon-allow-overlap": true,
         },
       });
 
@@ -296,6 +422,8 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
           "text-field": ["get", "point_count_abbreviated"],
           "text-font": ["Noto Sans Bold"],
           "text-size": 14,
+          "text-offset": [0, -0.25],
+          "text-allow-overlap": true,
         },
         paint: { "text-color": "#FFF8F0" },
       });
@@ -315,11 +443,22 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
             "pin-em-breve",
             "pin-futuro",
           ],
-          "icon-size": ["match", ["get", "estado_temporal"], "a_decorrer", 0.72, 0.62],
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 5, 0.54, 9, 0.62, 14, 0.72, 17, 0.8],
           "icon-anchor": "bottom",
           "icon-allow-overlap": true,
         },
+        paint: { "icon-opacity": 1 },
       });
+
+      if (festaSelecionadaIdRef.current) {
+        map.setPaintProperty("festas-pontos", "icon-opacity", ["case", ["==", ["get", "id"], festaSelecionadaIdRef.current], 1, 0.42]);
+      }
+
+      mapaProntoRef.current = true;
+      if (sublocalizacoesPendentesRef.current.length > 0) {
+        aplicarSublocalizacoes(map, sublocalizacoesPendentesRef.current);
+      }
+      aoCarregarRef.current?.();
 
       map.on("click", "clusters", async (e) => {
         const feature = map.queryRenderedFeatures(e.point, { layers: ["clusters"] })[0];
@@ -360,11 +499,12 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
     });
 
     return () => {
+      mapaProntoRef.current = false;
       marcadoresSublocalizacaoRef.current.forEach((marcador) => marcador.remove());
       map.remove();
       mapRef.current = null;
     };
-  }, [dados]);
+  }, []);
 
   return (
     <div

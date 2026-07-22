@@ -2,19 +2,30 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BotaoVoltar from "@/components/BotaoVoltar";
+import CartazFallback from "@/components/CartazFallback";
 import Galeria from "@/components/Galeria";
 import ImagemAmpliavel from "@/components/ImagemAmpliavel";
 import Navbar from "@/components/Navbar";
+import { nomeCategoriaPrincipal } from "@/lib/criar-evento";
 import { fetchFestaDetalhe, type FestaDetalhe } from "@/lib/festa-detalhe";
-import { CORES, ETIQUETAS } from "@/lib/festa-ui";
+import { CORES, ETIQUETAS, formatarDiaPrograma, formatarLocalizacao, resumoDatas } from "@/lib/festa-ui";
 
 export const revalidate = 3600;
 
 type Params = { params: Promise<{ concelho: string; slug: string }> };
 
-function formatarIntervalo(inicio: string, fim: string | null): string {
+function formatarIntervalo(inicio: string, fim: string | null, tipoRecorrencia: string, diasSemana: number[]): string {
+  const resumo = resumoDatas(inicio, fim, tipoRecorrencia, diasSemana);
+  if (resumo.secundario) return `${resumo.principal} · ${resumo.secundario}`;
   const fmt = new Intl.DateTimeFormat("pt-PT", { day: "numeric", month: "long", year: "numeric" });
   const dInicio = new Date(inicio + "T12:00:00");
+  if (tipoRecorrencia === "fins_de_semana" && fim) {
+    const dias = [...new Set(diasSemana.length ? diasSemana : [6, 7])].sort();
+    const quando = dias.length === 2 && dias[0] === 6 && dias[1] === 7
+      ? "Todos os fins de semana"
+      : dias.length === 3 ? "Sextas, sábados e domingos" : "Semanalmente";
+    return `${quando} até ${fmt.format(new Date(fim + "T12:00:00"))}`;
+  }
   if (!fim || fim === inicio) return fmt.format(dInicio);
   const dFim = new Date(fim + "T12:00:00");
   const mes = new Intl.DateTimeFormat("pt-PT", { month: "long" });
@@ -66,7 +77,7 @@ function jsonLd(festa: FestaDetalhe) {
     image: festa.cartazUrl ? [festa.cartazUrl, ...festa.fotos] : festa.fotos,
     location: {
       "@type": "Place",
-      name: [festa.freguesia, festa.concelho].filter(Boolean).join(", "),
+      name: formatarLocalizacao(festa.freguesia, festa.concelho),
       address: {
         "@type": "PostalAddress",
         addressLocality: festa.concelho,
@@ -108,7 +119,7 @@ export default async function PaginaFesta({ params }: Params) {
   const cor = CORES[festa.estadoTemporal];
   const base = `/festas/${festa.concelhoSlug}/${festa.slug}`;
   const temGeo = festa.lat != null && festa.lng != null;
-  const local = [festa.freguesia, festa.concelho, festa.distrito].filter(Boolean).join(", ");
+  const local = formatarLocalizacao(festa.freguesia, festa.concelho, festa.distrito);
 
   return (
     <div className="min-h-dvh bg-white text-[#1A2E4F]">
@@ -133,7 +144,10 @@ export default async function PaginaFesta({ params }: Params) {
             <span className="size-1.5 rounded-full" style={{ backgroundColor: cor }} />
             {ETIQUETAS[festa.estadoTemporal]}
           </span>
-          {festa.categorias.map((c) => (
+          <span className="rounded-[3px] bg-[#1A2E4F]/[0.06] px-2 py-1 text-[11px] font-medium text-[#1A2E4F]/65">
+            {festa.formatoEvento || nomeCategoriaPrincipal(festa.categoriaPrincipal)}
+          </span>
+          {festa.tagsEvento.slice(0, 3).map((c) => (
             <span key={c} className="rounded-[3px] bg-[#1A2E4F]/[0.06] px-2 py-1 text-[11px] font-medium capitalize text-[#1A2E4F]/65">
               {c}
             </span>
@@ -158,10 +172,7 @@ export default async function PaginaFesta({ params }: Params) {
               {festa.cartazUrl ? (
                 <ImagemAmpliavel src={festa.cartazUrl} alt={`Cartaz de ${festa.nome}`} className="w-full" />
               ) : (
-                <div className="flex aspect-[3/4] flex-col items-center justify-center gap-3 bg-[#F5F6F8] text-[#1A2E4F]/35">
-                  <Icone d="M4 5h16v14H4z M4 15l4-4 3 3 4-4 5 5" />
-                  <span className="text-xs font-medium">Cartaz por adicionar</span>
-                </div>
+                <CartazFallback nome={festa.nome} categoria={festa.categoriaPrincipal} mostrarNome className="aspect-[3/4] w-full" />
               )}
             </div>
 
@@ -170,7 +181,7 @@ export default async function PaginaFesta({ params }: Params) {
                 <div className="flex gap-3">
                   <dt className="mt-0.5 text-[#1A2E4F]/40"><Icone d="M8 2v4 M16 2v4 M3 10h18 M5 4h14v16H5z" /></dt>
                   <dd>
-                    <p className="font-semibold">{formatarIntervalo(festa.dataInicio, festa.dataFim)}</p>
+                    <p className="font-semibold">{formatarIntervalo(festa.dataInicio, festa.dataFim, festa.tipoRecorrencia, festa.diasSemana)}</p>
                     <p className="text-[13px] text-[#1A2E4F]/50">Edição de {festa.ano}</p>
                   </dd>
                 </div>
@@ -238,7 +249,7 @@ export default async function PaginaFesta({ params }: Params) {
                 <div className="mt-3 divide-y divide-[#1A2E4F]/10 border-y border-[#1A2E4F]/10">
                   {festa.programa.map((dia) => (
                     <div key={dia.dia} className="py-4">
-                      <p className="text-sm font-bold text-[#EC2456]">{dia.dia}</p>
+                      <p className="text-sm font-bold capitalize text-[#EC2456]">{formatarDiaPrograma(dia.dia)}</p>
                       <ul className="mt-2 space-y-1.5">
                         {dia.eventos.map((ev, i) => (
                           <li key={i} className="flex gap-4 text-sm text-[#1A2E4F]/80">
