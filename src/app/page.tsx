@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConviteOrganizador from "@/components/ConviteOrganizador";
 import MapaFestas from "@/components/MapaFestas";
 import Navbar, { type OpcaoPesquisa } from "@/components/Navbar";
 import { fetchFestasGeoJSON } from "@/lib/eventos";
@@ -18,6 +19,7 @@ export default async function Home() {
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-white">
       <Navbar contagem={dados.features.length} opcoesPesquisa={opcoesPesquisa} />
+      <ConviteOrganizador />
 
       <main className="relative z-0 min-h-0 flex-1">
         <MapaFestas dados={dados} />
