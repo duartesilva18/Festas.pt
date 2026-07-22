@@ -235,19 +235,36 @@ export default function CriadorEvento({
     }
   }
 
-  function errosObrigatorios() {
+  // Passo 0 (Dados) e passo 2 (Recinto) têm campos obrigatórios; o passo 1
+  // (Página) é todo opcional, por isso nunca bloqueia o avanço.
+  function errosPasso0() {
     const faltas: string[] = [];
     if (dados.nome.trim().length < 3) faltas.push("nome do evento");
-    if (!dados.concelhoId) faltas.push("concelho");
-    if (!dados.categoriaPrincipal) faltas.push("categoria do evento");
-    if (dados.categoriaPrincipal === "outro" && dados.formatoEvento.trim().length < 2) faltas.push("formato do evento");
     if (!dados.dataInicio) faltas.push("data de início");
-    if (dados.lat == null || dados.lng == null) faltas.push("localização principal no mapa");
     if (dados.dataFim && dados.dataInicio && dados.dataFim < dados.dataInicio) faltas.push("data de fim válida");
     if (dados.recorrencia === "fins_de_semana" && !dados.dataFim) faltas.push("data limite da repetição");
     if (dados.recorrencia === "fins_de_semana" && dados.diasSemana.length === 0) faltas.push("pelo menos um dia do fim de semana");
     if (dados.recorrencia === "fins_de_semana" && dados.dataInicio && dados.dataFim && !resumoFinsDeSemana(dados.dataInicio, dados.dataFim, dados.diasSemana).includes("ocorrência")) faltas.push("intervalo com dias selecionados");
+    if (!dados.concelhoId) faltas.push("concelho");
+    if (!dados.categoriaPrincipal) faltas.push("categoria do evento");
+    if (dados.categoriaPrincipal === "outro" && dados.formatoEvento.trim().length < 2) faltas.push("formato do evento");
     return faltas;
+  }
+
+  function errosPasso2() {
+    const faltas: string[] = [];
+    if (dados.lat == null || dados.lng == null) faltas.push("localização principal no mapa");
+    return faltas;
+  }
+
+  function errosPasso(indice: number) {
+    if (indice === 0) return errosPasso0();
+    if (indice === 2) return errosPasso2();
+    return [];
+  }
+
+  function errosObrigatorios() {
+    return [...errosPasso0(), ...errosPasso2()];
   }
 
   function adicionarTag() {
@@ -319,7 +336,7 @@ export default function CriadorEvento({
       </div>
 
       <nav aria-label="Passos para criar evento" className="mt-5 grid grid-cols-4 overflow-hidden rounded-xl border border-[#1A2E4F]/10 bg-white">
-        {PASSOS.map((item, indice) => <button key={item.nome} type="button" onClick={() => setPasso(indice)} aria-current={passo === indice ? "step" : undefined} className={`min-w-0 border-r border-[#1A2E4F]/8 px-2 py-3 text-left last:border-r-0 sm:px-4 ${passo === indice ? "bg-[#EC2456]/[0.045]" : "hover:bg-[#1A2E4F]/[0.025]"}`}><span className={`block text-[11px] font-bold sm:text-sm ${passo === indice ? "text-[#EC2456]" : "text-[#102745]"}`}>{indice + 1}. {item.nome}</span><span className="mt-0.5 hidden text-[11px] text-[#1A2E4F]/45 sm:block">{item.descricao}</span></button>)}
+        {PASSOS.map((item, indice) => <button key={item.nome} type="button" onClick={() => { if (indice > passo) { const faltas = errosPasso(passo); if (faltas.length) { setErro(`Falta confirmar: ${faltas.join(", ")}.`); return; } } setErro(""); setPasso(indice); }} aria-current={passo === indice ? "step" : undefined} className={`min-w-0 border-r border-[#1A2E4F]/8 px-2 py-3 text-left last:border-r-0 sm:px-4 ${passo === indice ? "bg-[#EC2456]/[0.045]" : "hover:bg-[#1A2E4F]/[0.025]"}`}><span className={`block text-[11px] font-bold sm:text-sm ${passo === indice ? "text-[#EC2456]" : "text-[#102745]"}`}>{indice + 1}. {item.nome}</span><span className="mt-0.5 hidden text-[11px] text-[#1A2E4F]/45 sm:block">{item.descricao}</span></button>)}
       </nav>
 
       <div className="mt-5 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -388,7 +405,7 @@ export default function CriadorEvento({
           </div>}
 
           {erro && <div role="alert" className="mt-5 rounded-lg border border-[#EC2456]/20 bg-[#EC2456]/[0.04] px-4 py-3 text-sm font-semibold text-[#C91D49]">{erro}</div>}
-          <div className="mt-7 flex items-center justify-between border-t border-[#1A2E4F]/8 pt-5"><button type="button" disabled={passo === 0} onClick={() => setPasso((atual) => Math.max(0, atual - 1))} className="rounded-lg px-3 py-2 text-sm font-bold text-[#1A2E4F]/55 transition hover:bg-[#1A2E4F]/5 disabled:cursor-not-allowed disabled:opacity-30">Anterior</button>{passo < PASSOS.length - 1 && <button type="button" onClick={() => setPasso((atual) => Math.min(PASSOS.length - 1, atual + 1))} className="inline-flex items-center gap-1.5 rounded-lg bg-[#102745] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#1A2E4F]">Continuar<Icone tipo="seta" /></button>}</div>
+          <div className="mt-7 flex items-center justify-between border-t border-[#1A2E4F]/8 pt-5"><button type="button" disabled={passo === 0} onClick={() => setPasso((atual) => Math.max(0, atual - 1))} className="rounded-lg px-3 py-2 text-sm font-bold text-[#1A2E4F]/55 transition hover:bg-[#1A2E4F]/5 disabled:cursor-not-allowed disabled:opacity-30">Anterior</button>{passo < PASSOS.length - 1 && <button type="button" onClick={() => { const faltas = errosPasso(passo); if (faltas.length) { setErro(`Falta confirmar: ${faltas.join(", ")}.`); return; } setErro(""); setPasso((atual) => Math.min(PASSOS.length - 1, atual + 1)); }} className="inline-flex items-center gap-1.5 rounded-lg bg-[#102745] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#1A2E4F]">Continuar<Icone tipo="seta" /></button>}</div>
         </section>
 
         <aside className={`h-fit overflow-hidden rounded-xl border border-[#1A2E4F]/10 bg-white shadow-sm lg:sticky lg:top-5 ${passo !== 3 ? "hidden lg:block" : "block"}`}>
