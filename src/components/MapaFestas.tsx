@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentPropsWithoutRef, type CSSProperties, type ForwardRefExoticComponent, type PointerEvent as ReactPointerEvent, type RefAttributes } from "react";
+import CarregamentoMapa from "@/components/CarregamentoMapa";
 import CartazFallback from "@/components/CartazFallback";
 import type FestaMapBase from "@/components/FestaMap";
 import type { FestaMapHandle } from "@/components/FestaMap";
@@ -24,7 +25,7 @@ import {
 
 const FestaMap = dynamic(() => import("@/components/FestaMap"), {
   ssr: false,
-  loading: () => <div className="absolute inset-0 animate-pulse bg-[#e9effa]" aria-label="A carregar mapa" />,
+  loading: () => <CarregamentoMapa />,
 }) as unknown as ForwardRefExoticComponent<ComponentPropsWithoutRef<typeof FestaMapBase> & RefAttributes<FestaMapHandle>>;
 
 type Painel =
@@ -788,6 +789,8 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
   const [festaNoUrl, setFestaNoUrl] = useState<string | null>(null);
   const [erroMapa, setErroMapa] = useState(false);
   const [mapaPronto, setMapaPronto] = useState(false);
+  // Mantém o ecrã de carregamento montado durante o fade, para não haver corte seco.
+  const [carregamentoVisivel, setCarregamentoVisivel] = useState(true);
   const [lista, setLista] = useState<FestaSelecionada[]>([]);
   const [tituloLista, setTituloLista] = useState<string | undefined>();
   const [aFechar, setAFechar] = useState(false);
@@ -804,6 +807,19 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
 
   const mostrarSublocalizacoesNoMapa = useCallback((locais: { lng: number; lat: number; nome: string; tipo: string }[]) => {
     if (mapaPronto) mapaRef.current?.mostrarSublocalizacoes(locais);
+  }, [mapaPronto]);
+
+  useEffect(() => {
+    if (mapaPronto) {
+      const fim = window.setTimeout(() => setCarregamentoVisivel(false), 320);
+      return () => window.clearTimeout(fim);
+    }
+    // Rede de segurança: se o mapa nunca se declarar pronto (tiles em falta,
+    // ligação péssima), mais vale mostrar o que houver do que deixar o
+    // utilizador preso atrás de um ecrã opaco para sempre.
+    setCarregamentoVisivel(true);
+    const desistir = window.setTimeout(() => setCarregamentoVisivel(false), 8_000);
+    return () => window.clearTimeout(desistir);
   }, [mapaPronto]);
 
   const dadosVisiveis = useMemo(() => filtroMapa === "todas"
@@ -1005,6 +1021,7 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
         }}
       />
       {painel.modo !== "detalhe" && <FiltrosMapa filtro={filtroMapa} onChange={alterarFiltroMapa} />}
+      {carregamentoVisivel && !erroMapa && <CarregamentoMapa aDesaparecer={mapaPronto} />}
       {erroMapa && <div role="status" className="absolute inset-x-4 top-4 z-20 mx-auto flex max-w-sm items-center justify-between gap-3 rounded-lg bg-white px-3 py-2.5 text-xs font-semibold text-[#1A2E4F] shadow-lg ring-1 ring-[#1A2E4F]/10"><span>Não foi possível carregar o mapa.</span><button type="button" onClick={() => window.location.reload()} className="cursor-pointer text-[#EC2456] transition hover:text-[#d11a47]">Tentar de novo</button></div>}
 
       {painel.modo !== "fechado" && (
