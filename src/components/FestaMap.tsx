@@ -311,9 +311,14 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
       style: "https://tiles.openfreemap.org/styles/liberty",
       bounds: PORTUGAL_BOUNDS,
       fitBoundsOptions: { padding: 24 },
+      // Simétrico em relação ao centro de Portugal (-7.925) e largo o
+      // suficiente para nunca colidir com o enquadramento inicial. Se for mais
+      // estreito do que a vista, o MapLibre ignora o padding pedido e encosta o
+      // país às bordas, além de o descentrar. Quem impede mesmo a navegação
+      // para Espanha é o vigiarCentro, que prende o centro da câmara.
       maxBounds: [
-        [-16.5, 35.6],
-        [1.0, 43.5],
+        [-18.93, 35.6],
+        [3.08, 43.5],
       ],
       minZoom: 5,
       attributionControl: false,
