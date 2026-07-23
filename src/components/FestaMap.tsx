@@ -364,19 +364,30 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
       // A máscara cobre tudo fora de Portugal. A camada de água real, colocada
       // logo por cima, devolve o Atlântico e os rios à sua cor normal.
       map.addSource("sombra-espanha", { type: "geojson", data: mascaraPortugal as GeoJSON.FeatureCollection });
+      // A máscara serve para focar Portugal na vista de país. Ao aproximar,
+      // deixa de fazer sentido e só suja a imagem — o recorte corta ruas a
+      // meio. Desvanece entre o zoom 9 e o 11, onde já se vê uma cidade.
       map.addLayer({
           id: "sombra-espanha",
           type: "fill",
           source: "sombra-espanha",
-          paint: { "fill-color": "#C9DDF6", "fill-opacity": 0.58 },
+          paint: {
+            "fill-color": "#C9DDF6",
+            "fill-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.58, 11, 0],
+          },
         });
+      // Repõe a água por cima da máscara — com a mesma cor do estilo base, por
+      // isso pode desaparecer ao mesmo ritmo sem que se note qualquer salto.
       map.addLayer({
         id: "agua-sobre-sombra",
         type: "fill",
         source: "openmaptiles",
         "source-layer": "water",
         filter: ["!=", ["get", "brunnel"], "tunnel"],
-        paint: { "fill-color": "rgb(158,189,255)" },
+        paint: {
+          "fill-color": "rgb(158,189,255)",
+          "fill-opacity": ["interpolate", ["linear"], ["zoom"], 9, 1, 11, 0],
+        },
       });
 
       if (fronteiraPortugal.length > 0) {
@@ -388,7 +399,13 @@ const FestaMap = forwardRef<FestaMapHandle, Props>(function FestaMap(
           id: "fronteira-portugal",
           type: "line",
           source: "fronteira-portugal",
-          paint: { "line-color": "#EC2456", "line-width": 1.25, "line-opacity": 0.58 },
+          paint: {
+            "line-color": "#EC2456",
+            "line-width": 1.25,
+            // Acompanha a máscara: ao nível da rua era só uma linha rosa a
+            // cortar a cidade ao meio.
+            "line-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.58, 11, 0],
+          },
         });
       }
 
