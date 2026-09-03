@@ -19,6 +19,7 @@ const TIPOS: Record<string, string> = {
 type PedidoPendente = {
   id: string;
   nome_entidade: string;
+  festas: { nome: string; slug: string; entidade_id: string | null; concelhos: { slug: string } | null } | null;
   tipo_entidade: string;
   concelho: string;
   contacto: string;
@@ -37,7 +38,7 @@ async function carregarPedidos(): Promise<{ pendentes: PedidoPendente[]; indispo
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) return { pendentes: [], indisponivel: true };
 
-  const select = "id,nome_entidade,tipo_entidade,concelho,contacto,link,justificacao,created_at,perfis(nome,email)";
+  const select = "id,nome_entidade,tipo_entidade,concelho,contacto,link,justificacao,created_at,perfis(nome,email),festas(nome,slug,entidade_id,concelhos(slug))";
   const resposta = await fetch(
     `${url}/rest/v1/pedidos_organizador?estado=eq.pendente&select=${encodeURIComponent(select)}&order=created_at.asc&limit=100`,
     { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }, cache: "no-store" },
@@ -96,6 +97,20 @@ export default async function PaginaPedidos() {
                       {TIPOS[pedido.tipo_entidade] ?? pedido.tipo_entidade}
                     </span>
                   </p>
+                  {pedido.festas && (
+                    <p className="mt-1.5 rounded-md bg-[#EC2456]/[0.06] px-2 py-1.5 text-xs text-[#1A2E4F]/75">
+                      <span className="font-bold text-[#EC2456]">Reclamação</span>{" — aprovar entrega-lhes a página de "}
+                      <a
+                        href={`/festas/${pedido.festas.concelhos?.slug ?? ""}/${pedido.festas.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold underline decoration-[#EC2456]/40 underline-offset-2"
+                      >
+                        {pedido.festas.nome}
+                      </a>
+                      {pedido.festas.entidade_id ? " — atenção: esta festa já tem dono, a aprovação vai falhar." : "."}
+                    </p>
+                  )}
                   <p className="mt-0.5 text-xs text-[#1A2E4F]/55">
                     {pedido.perfis?.nome || "Sem nome"}
                     {pedido.perfis?.email && <span> · {pedido.perfis.email}</span>}

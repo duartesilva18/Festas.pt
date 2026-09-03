@@ -15,7 +15,16 @@ const CAMPO =
   "mt-1.5 w-full rounded-lg border border-[#1A2E4F]/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-[#EC2456]";
 const ETIQUETA = "mt-3 block text-xs font-semibold text-[#1A2E4F]/75";
 
-export default function PedidoOrganizador({ textoBotao }: { textoBotao: string }) {
+export default function PedidoOrganizador({
+  textoBotao,
+  festaId,
+  nomeFesta,
+}: {
+  textoBotao: string;
+  /** Quando presente, o pedido é uma reclamação desta festa em vez de uma verificação. */
+  festaId?: string;
+  nomeFesta?: string;
+}) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [nomeEntidade, setNomeEntidade] = useState("");
@@ -34,7 +43,9 @@ export default function PedidoOrganizador({ textoBotao }: { textoBotao: string }
     event.preventDefault();
     setErro("");
     if (justificacao.trim().length < 20) {
-      setErro("Explica em pelo menos 20 caracteres porque representas esta entidade.");
+      setErro(festaId
+        ? "Explica em pelo menos 20 caracteres a vossa ligação a esta festa."
+        : "Explica em pelo menos 20 caracteres porque representas esta entidade.");
       return;
     }
     setAEnviar(true);
@@ -49,6 +60,7 @@ export default function PedidoOrganizador({ textoBotao }: { textoBotao: string }
           contacto,
           link,
           justificacao,
+          festaId,
           website,
           tempoPreenchimento: Date.now() - inicioFormulario,
         }),
@@ -68,7 +80,9 @@ export default function PedidoOrganizador({ textoBotao }: { textoBotao: string }
     return (
       <div role="status" className="mt-3 flex items-center gap-2 rounded-lg border border-[#20856D]/20 bg-[#20856D]/[0.05] px-3 py-2.5 text-xs text-[#1A2E4F]/70">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#20856D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-        Pedido enviado — vamos analisá-lo e recebes a resposta no teu perfil.
+        {festaId
+          ? "Pedido enviado — vamos confirmar e, se estiver certo, a página passa a ser vossa."
+          : "Pedido enviado — vamos analisá-lo e recebes a resposta no teu perfil."}
       </div>
     );
   }
@@ -89,9 +103,13 @@ export default function PedidoOrganizador({ textoBotao }: { textoBotao: string }
     <form onSubmit={enviar} className="mt-4 rounded-xl border border-[#EC2456]/20 bg-[#fff8fa] p-4 text-left">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-bold text-[#102745]">Pedido de verificação</p>
+          <p className="text-sm font-bold text-[#102745]">
+            {festaId ? "Reclamar esta festa" : "Pedido de verificação"}
+          </p>
           <p className="mt-0.5 text-[11px] leading-relaxed text-[#1A2E4F]/60">
-            Diz-nos que entidade representas. Analisamos cada pedido manualmente.
+            {festaId
+              ? <>Diz-nos que entidade organiza {nomeFesta ? <span className="font-semibold">{nomeFesta}</span> : "esta festa"}. Confirmamos antes de entregar a página.</>
+              : "Diz-nos que entidade representas. Analisamos cada pedido manualmente."}
           </p>
         </div>
         <button type="button" onClick={() => setAberto(false)} className="cursor-pointer text-xs font-bold text-[#1A2E4F]/55 hover:text-[#EC2456]">Cancelar</button>

@@ -54,6 +54,12 @@ export async function POST(req: Request) {
       if (detalhe.includes("PEDIDO_NAO_PENDENTE")) {
         return NextResponse.json({ error: "O pedido já foi moderado." }, { status: 409 });
       }
+      if (detalhe.includes("FESTA_JA_TEM_DONO")) {
+        return NextResponse.json(
+          { error: "Essa festa já tem uma entidade responsável — rejeita este pedido." },
+          { status: 409 },
+        );
+      }
       return NextResponse.json({ error: "Não foi possível aprovar o pedido." }, { status: 502 });
     }
     const entidadeId = await resposta.json().catch(() => null);

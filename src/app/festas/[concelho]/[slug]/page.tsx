@@ -9,6 +9,7 @@ import Navbar from "@/components/Navbar";
 import { nomeCategoriaPrincipal } from "@/lib/criar-evento";
 import { fetchFestaDetalhe, type FestaDetalhe } from "@/lib/festa-detalhe";
 import SeloProvisorio from "@/components/SeloProvisorio";
+import PedidoOrganizador from "@/components/PedidoOrganizador";
 import { CORES, ETIQUETAS, formatarDiaPrograma, formatarLocalizacao, resumoDatas } from "@/lib/festa-ui";
 
 export const revalidate = 3600;
@@ -201,6 +202,17 @@ export default async function PaginaFesta({ params }: Params) {
                   <dd className="text-[#1A2E4F]/80">{local}</dd>
                 </div>
               </dl>
+
+              {!festa.entidade && (
+                <div className="mt-4 rounded-xl border border-dashed border-[#1A2E4F]/18 bg-[#1A2E4F]/[0.02] p-4">
+                  <p className="text-sm font-bold text-[#102745]">Organizam esta festa?</p>
+                  <p className="mt-1 text-xs leading-relaxed text-[#1A2E4F]/60">
+                    Esta página ainda não tem uma entidade responsável. Se são vocês que organizam,
+                    podem ficar com ela e passar a atualizar datas, programa e fotos.
+                  </p>
+                  <PedidoOrganizador textoBotao="É a nossa festa" festaId={festa.id} nomeFesta={festa.nome} />
+                </div>
+              )}
 
               <div className="mt-4 space-y-2">
                 {temGeo && (

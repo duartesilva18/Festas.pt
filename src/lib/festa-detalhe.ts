@@ -12,6 +12,7 @@ export type SubLocalizacao = {
 };
 
 export type FestaDetalhe = {
+  id: string;
   nome: string;
   entidade: string | null;
   slug: string;
@@ -100,7 +101,7 @@ export const fetchFestaDetalhe = cache(async function fetchFestaDetalhe(
   if (!url || !key) throw new Error("Variáveis NEXT_PUBLIC_SUPABASE_* em falta");
 
   const select =
-    "nome,slug,freguesia,descricao,categorias,categoria_principal,formato_evento,tags_evento,tipo_recorrencia,location," +
+    "id,nome,slug,freguesia,descricao,categorias,categoria_principal,formato_evento,tags_evento,tipo_recorrencia,location," +
     "concelhos!inner(nome,slug,distrito),entidades(nome)," +
     "edicoes(ano,data_inicio,data_fim,estado,programa,cartaz_url,fotos,caracteristicas,fonte_url,padrao_recorrencia,dias_semana,edicoes_sublocalizacoes(id,nome,tipo,descricao,location,ordem,estado,visivel))";
   const query =
@@ -124,6 +125,7 @@ export const fetchFestaDetalhe = cache(async function fetchFestaDetalhe(
   const ponto = parseEWKBPoint(f.location);
 
   return {
+    id: f.id,
     nome: f.nome,
     entidade: (f as { entidades?: { nome?: string } | null }).entidades?.nome ?? null,
     slug: f.slug,

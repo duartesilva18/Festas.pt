@@ -5,6 +5,7 @@ import { origemValida } from "@/lib/http";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TIPOS = ["junta_freguesia", "camara_municipal", "comissao_festas", "associacao", "outro"];
 
 function textoLimpo(valor: unknown, limite: number) {
@@ -30,15 +31,32 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: "Inicia sessão para pedir verificação." }, { status: 401 });
 
   const { data: perfil } = await supabase.from("perfis").select("papel").eq("id", user.id).single();
-  if (perfil?.papel === "organizador" || perfil?.papel === "admin") {
-    return NextResponse.json({ error: "A tua conta já está verificada." }, { status: 409 });
-  }
 
   let corpo: Record<string, unknown>;
   try {
     corpo = await req.json();
   } catch {
     return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
+  }
+
+  // Com uma festa, o pedido é uma reclamação ("esta festa é nossa"). Sem ela, é
+  // o pedido de verificação de sempre.
+  const festaId = typeof corpo.festaId === "string" && UUID.test(corpo.festaId) ? corpo.festaId : null;
+
+  if (!festaId && (perfil?.papel === "organizador" || perfil?.papel === "admin")) {
+    return NextResponse.json({ error: "A tua conta já está verificada." }, { status: 409 });
+  }
+  // Um organizador pode reclamar mais festas; o admin já as gere todas.
+  if (festaId && perfil?.papel === "admin") {
+    return NextResponse.json({ error: "Como admin já podes gerir qualquer festa." }, { status: 409 });
+  }
+
+  if (festaId) {
+    const { data: festa } = await supabase.from("festas").select("id,entidade_id").eq("id", festaId).maybeSingle();
+    if (!festa) return NextResponse.json({ error: "Festa não encontrada." }, { status: 404 });
+    if (festa.entidade_id) {
+      return NextResponse.json({ error: "Esta festa já tem uma entidade responsável." }, { status: 409 });
+    }
   }
 
   // Honeypot: responde ok sem dar feedback útil a bots.
@@ -73,11 +91,14 @@ export async function POST(req: Request) {
     contacto,
     link: link || null,
     justificacao,
+    festa_id: festaId,
   });
 
   if (error) {
     if (error.code === "23505") {
-      return NextResponse.json({ error: "Já tens um pedido em análise." }, { status: 409 });
+      return NextResponse.json({
+        error: festaId ? "Já há um pedido em análise para esta festa." : "Já tens um pedido em análise.",
+      }, { status: 409 });
     }
     return NextResponse.json({ error: "Não foi possível enviar o pedido. Tenta novamente." }, { status: 502 });
   }
