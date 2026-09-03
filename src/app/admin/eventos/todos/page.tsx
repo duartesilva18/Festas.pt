@@ -44,30 +44,41 @@ const FILTROS = [
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
+const POR_PAGINA = 50;
+
 type DadosTodos = {
   eventos: Edicao[];
   organizadores: Map<string, { nome: string | null; email: string | null }>;
+  total: number;
   indisponivel: boolean;
 };
 
-async function carregarEventos(estado: string): Promise<DadosTodos> {
-  const vazio: DadosTodos = { eventos: [], organizadores: new Map(), indisponivel: true };
+async function carregarEventos(estado: string, procura: string, pagina: number): Promise<DadosTodos> {
+  const vazio: DadosTodos = { eventos: [], organizadores: new Map(), total: 0, indisponivel: true };
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) return vazio;
 
   const cabecalhos = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
-  const select =
-    "id,ano,data_inicio,data_fim,estado,cartaz_url,criado_por,submetida_em,nota_moderacao," +
-    "festas(nome,slug,freguesia,concelhos(nome,distrito,slug))";
-  const filtroEstado = estado ? `&estado=eq.${estado}` : "";
-  const resposta = await fetch(
-    `${url}/rest/v1/edicoes?select=${encodeURIComponent(select)}${filtroEstado}&order=data_inicio.desc&limit=400`,
-    { headers: cabecalhos, cache: "no-store" },
-  );
+  // Filtrar, ordenar e paginar no Postgres. Antes vinham 400 edicoes para
+  // serem filtradas em memoria, o que alem de desperdicio era incorreto:
+  // passadas 400, a pesquisa deixava de encontrar as mais antigas.
+  const resposta = await fetch(`${url}/rest/v1/rpc/admin_listar_edicoes`, {
+    method: "POST",
+    headers: { ...cabecalhos, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      p_estado: estado || null,
+      p_procura: procura || null,
+      p_limite: POR_PAGINA,
+      p_offset: (pagina - 1) * POR_PAGINA,
+    }),
+    cache: "no-store",
+  });
   if (!resposta.ok) return vazio;
 
-  const eventos: Edicao[] = await resposta.json();
+  const linhas: { evento: Edicao; total: number | null }[] = await resposta.json();
+  const eventos: Edicao[] = linhas.map((l) => l.evento);
+  const total = Number(linhas[0]?.total ?? 0);
   const organizadores = new Map<string, { nome: string | null; email: string | null }>();
   const ids = [...new Set(eventos.map((e) => e.criado_por).filter((id): id is string => Boolean(id)))];
   if (ids.length) {
@@ -80,7 +91,7 @@ async function carregarEventos(estado: string): Promise<DadosTodos> {
       for (const l of linhas) organizadores.set(l.id, { nome: l.nome, email: l.email });
     }
   }
-  return { eventos, organizadores, indisponivel: false };
+  return { eventos, organizadores, total, indisponivel: false };
 }
 
 export default async function PaginaTodosEventos({ searchParams }: Props) {
@@ -89,18 +100,21 @@ export default async function PaginaTodosEventos({ searchParams }: Props) {
   const estado = estadoBruto in ESTADOS ? estadoBruto : "";
   const procura = (typeof parametros.q === "string" ? parametros.q : "").trim().slice(0, 80);
 
-  // Portão e dados em paralelo — ver a nota em @/lib/admin.
-  const [admin, dados] = await Promise.all([ehAdmin(), carregarEventos(estado)]);
-  if (!admin) redirect("/");
-  const { eventos, organizadores, indisponivel } = dados;
+  const paginaBruta = Number(typeof parametros.pagina === "string" ? parametros.pagina : "1");
+  const pagina = Number.isInteger(paginaBruta) && paginaBruta > 0 ? Math.min(paginaBruta, 1000) : 1;
 
-  // A pesquisa cobre nome, concelho e distrito — poucos registos, filtrar aqui
-  // evita filtros encadeados no PostgREST sobre relações embutidas.
-  const normalizar = (texto: string) => texto.normalize("NFD").replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const alvo = normalizar(procura);
-  const visiveis = alvo
-    ? eventos.filter((evento) => normalizar([evento.festas?.nome, evento.festas?.freguesia, evento.festas?.concelhos?.nome, evento.festas?.concelhos?.distrito].filter(Boolean).join(" ")).includes(alvo))
-    : eventos;
+  // Portão e dados em paralelo — ver a nota em @/lib/admin.
+  const [admin, dados] = await Promise.all([ehAdmin(), carregarEventos(estado, procura, pagina)]);
+  if (!admin) redirect("/");
+  const { eventos: visiveis, organizadores, total, indisponivel } = dados;
+  const ultimaPagina = Math.max(1, Math.ceil(total / POR_PAGINA));
+  const ligacao = (destino: number) => {
+    const query = new URLSearchParams();
+    if (estado) query.set("estado", estado);
+    if (procura) query.set("q", procura);
+    if (destino > 1) query.set("pagina", String(destino));
+    return query.toString() ? `/admin/eventos/todos?${query}` : "/admin/eventos/todos";
+  };
 
   return (
     <div className="min-h-dvh bg-white text-[#1A2E4F]">
@@ -115,7 +129,7 @@ export default async function PaginaTodosEventos({ searchParams }: Props) {
             </p>
           </div>
           <span className="shrink-0 rounded-full bg-[#EC2456]/10 px-3 py-1.5 text-sm font-bold text-[#EC2456]">
-            {visiveis.length} evento{visiveis.length === 1 ? "" : "s"}
+            {total} evento{total === 1 ? "" : "s"}
           </span>
         </div>
 
@@ -227,6 +241,24 @@ export default async function PaginaTodosEventos({ searchParams }: Props) {
             );
           })}
         </ul>
+
+        {ultimaPagina > 1 && (
+          <nav className="mt-6 flex items-center justify-between gap-3 border-t border-[#1A2E4F]/8 pt-4" aria-label="Paginação">
+            {pagina > 1 ? (
+              <Link href={ligacao(pagina - 1)} className="cursor-pointer rounded-lg px-3 py-2 text-sm font-bold text-[#EC2456] transition hover:bg-[#EC2456]/[0.07]">
+                ← Anteriores
+              </Link>
+            ) : <span />}
+            <span className="text-xs font-semibold text-[#1A2E4F]/50">
+              Página {pagina} de {ultimaPagina}
+            </span>
+            {pagina < ultimaPagina ? (
+              <Link href={ligacao(pagina + 1)} className="cursor-pointer rounded-lg px-3 py-2 text-sm font-bold text-[#EC2456] transition hover:bg-[#EC2456]/[0.07]">
+                Seguintes →
+              </Link>
+            ) : <span />}
+          </nav>
+        )}
       </main>
     </div>
   );
