@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const TIPOS = [
@@ -12,8 +12,8 @@ const TIPOS = [
 ] as const;
 
 const CAMPO =
-  "mt-1.5 w-full rounded-lg border border-[#1A2E4F]/15 bg-white px-3 py-2.5 text-sm font-normal outline-none transition focus:border-[#EC2456]";
-const ETIQUETA = "mt-3 block text-xs font-semibold text-[#1A2E4F]/75";
+  "mt-1.5 w-full rounded-lg border border-[#1A2E4F]/15 bg-white px-3.5 py-2.5 text-sm font-normal text-[#102745] outline-none transition placeholder:text-[#1A2E4F]/35 focus:border-[#EC2456] focus:ring-2 focus:ring-[#EC2456]/10";
+const ETIQUETA = "mt-4 block text-[13px] font-semibold text-[#1A2E4F]/80";
 
 export default function PedidoOrganizador({
   textoBotao,
@@ -38,6 +38,21 @@ export default function PedidoOrganizador({
   const [enviado, setEnviado] = useState(false);
   const [aEnviar, setAEnviar] = useState(false);
   const [inicioFormulario] = useState(() => Date.now());
+
+  // O formulario vive num dialogo por cima da pagina, e nao na coluna onde o
+  // botao esta: sao seis campos, e numa barra lateral estreita ficavam
+  // esmagados, com etiquetas partidas e a caixa de texto com scroll.
+  useEffect(() => {
+    if (!aberto) return;
+    const fechar = (e: KeyboardEvent) => { if (e.key === "Escape") setAberto(false); };
+    document.addEventListener("keydown", fechar);
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", fechar);
+      document.body.style.overflow = overflowAnterior;
+    };
+  }, [aberto]);
 
   const enviar = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -100,19 +115,28 @@ export default function PedidoOrganizador({
   }
 
   return (
-    <form onSubmit={enviar} className="mt-4 rounded-xl border border-[#EC2456]/20 bg-[#fff8fa] p-4 text-left">
-      <div className="flex items-start justify-between gap-3">
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#102745]/45 p-4 py-8 backdrop-blur-[2px] sm:items-center"
+      onClick={(e) => { if (e.target === e.currentTarget) setAberto(false); }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={festaId ? "Reclamar esta festa" : "Pedido de verificação"}
+    >
+    <form onSubmit={enviar} className="w-full max-w-lg rounded-2xl border border-[#1A2E4F]/10 bg-white p-6 text-left shadow-2xl sm:p-7">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-bold text-[#102745]">
+          <p className="text-lg font-bold text-[#102745]">
             {festaId ? "Reclamar esta festa" : "Pedido de verificação"}
           </p>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-[#1A2E4F]/60">
+          <p className="mt-1 text-[13px] leading-relaxed text-[#1A2E4F]/65">
             {festaId
               ? <>Diz-nos que entidade organiza {nomeFesta ? <span className="font-semibold">{nomeFesta}</span> : "esta festa"}. Confirmamos antes de entregar a página.</>
               : "Diz-nos que entidade representas. Analisamos cada pedido manualmente."}
           </p>
         </div>
-        <button type="button" onClick={() => setAberto(false)} className="cursor-pointer text-xs font-bold text-[#1A2E4F]/55 hover:text-[#EC2456]">Cancelar</button>
+        <button type="button" onClick={() => setAberto(false)} aria-label="Fechar" className="-mr-1 -mt-1 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#1A2E4F]/45 transition hover:bg-[#1A2E4F]/[0.06] hover:text-[#102745]">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        </button>
       </div>
 
       <label className={`${ETIQUETA} mt-4`}>Nome da entidade
@@ -125,7 +149,7 @@ export default function PedidoOrganizador({
         </select>
       </label>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-x-4 sm:grid-cols-2">
         <label className={ETIQUETA}>Concelho
           <input value={concelho} onChange={(e) => setConcelho(e.target.value)} required minLength={2} maxLength={80} placeholder="Ex.: Ponte de Lima" className={CAMPO} />
         </label>
@@ -139,9 +163,9 @@ export default function PedidoOrganizador({
       </label>
 
       <label className={ETIQUETA}>Porque deves ser verificado?
-        <textarea value={justificacao} onChange={(e) => setJustificacao(e.target.value)} required maxLength={1000} placeholder="Ex.: Organizamos as festas de… todos os anos e queremos publicá-las na plataforma." className="mt-1.5 min-h-24 w-full resize-none rounded-lg border border-[#1A2E4F]/15 bg-white p-3 text-sm font-normal outline-none transition focus:border-[#EC2456]" />
+        <textarea value={justificacao} onChange={(e) => setJustificacao(e.target.value)} required maxLength={1000} placeholder="Ex.: Organizamos as festas de… todos os anos e queremos publicá-las na plataforma." className="mt-1.5 min-h-28 w-full resize-y rounded-lg border border-[#1A2E4F]/15 bg-white p-3.5 text-sm font-normal leading-relaxed text-[#102745] outline-none transition placeholder:text-[#1A2E4F]/35 focus:border-[#EC2456] focus:ring-2 focus:ring-[#EC2456]/10" />
       </label>
-      <div className="mt-1 flex justify-between text-[11px] text-[#1A2E4F]/45">
+      <div className="mt-1.5 flex justify-between text-[11px] text-[#1A2E4F]/45">
         <span>Mínimo de 20 caracteres</span>
         <span>{justificacao.length}/1000</span>
       </div>
@@ -150,9 +174,10 @@ export default function PedidoOrganizador({
 
       {erro && <p role="alert" className="mt-3 text-xs font-semibold text-[#c43d4b]">{erro}</p>}
 
-      <button type="submit" disabled={aEnviar} className="mt-4 w-full cursor-pointer rounded-lg bg-[#EC2456] py-2.5 text-sm font-bold text-white transition hover:bg-[#d11a47] disabled:cursor-wait disabled:opacity-60">
+      <button type="submit" disabled={aEnviar} className="mt-6 w-full cursor-pointer rounded-lg bg-[#EC2456] py-2.5 text-sm font-bold text-white transition hover:bg-[#d11a47] disabled:cursor-wait disabled:opacity-60">
         {aEnviar ? "A enviar…" : "Enviar pedido"}
       </button>
     </form>
+    </div>
   );
 }
