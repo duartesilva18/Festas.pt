@@ -137,9 +137,17 @@ function MenuUtilizador() {
   const [pendentes, setPendentes] = useState<{ eventos: number; criticas: number; pedidos: number; total: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Só o admin tem fila de moderação — para os restantes nem se pede.
+  // Só o admin tem fila de moderação — para os restantes nem se pede. Guardamos
+  // o papel a que a contagem pertence para a descartar durante o render quando
+  // ele muda, em vez de a limpar com um setState dentro do effect.
+  const [papelContado, setPapelContado] = useState(papel);
+  if (papel !== papelContado) {
+    setPapelContado(papel);
+    setPendentes(null);
+  }
+
   useEffect(() => {
-    if (papel !== "admin") { setPendentes(null); return; }
+    if (papel !== "admin") return;
     let ativo = true;
     fetch("/api/admin/pendentes", { cache: "no-store" })
       .then((resposta) => (resposta.ok ? resposta.json() : null))

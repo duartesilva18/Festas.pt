@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 type Concelho = { id: string; nome: string; distrito: string };
 
@@ -27,6 +27,7 @@ export default function SeletorConcelho({
   const [ativo, setAtivo] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const idLista = useId();
 
   useEffect(() => {
     const fora = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setAberto(false); setTermo(""); } };
@@ -40,7 +41,13 @@ export default function SeletorConcelho({
     return lista.slice(0, 40);
   }, [concelhos, termo]);
 
-  useEffect(() => setAtivo(0), [termo]);
+  // Reiniciar o índice durante o render (e não num effect) evita o render em
+  // cascata: a lista nunca chega a aparecer com a linha errada realçada.
+  const [termoAnterior, setTermoAnterior] = useState(termo);
+  if (termo !== termoAnterior) {
+    setTermoAnterior(termo);
+    setAtivo(0);
+  }
 
   const escolher = (c: Concelho) => {
     onAlterar(c.id);
@@ -66,7 +73,9 @@ export default function SeletorConcelho({
           placeholder="Escrever o nome do concelho…"
           role="combobox"
           aria-expanded={aberto}
+          aria-controls={idLista}
           aria-autocomplete="list"
+          aria-activedescendant={aberto && resultados[ativo] ? `${idLista}-${resultados[ativo].id}` : undefined}
           className={`mt-1.5 w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-[#102745] outline-none transition placeholder:text-[#1A2E4F]/35 ${
             invalido
               ? "border-[#c43d4b]/60 bg-[#c43d4b]/[0.03] focus:border-[#c43d4b] focus:ring-2 focus:ring-[#c43d4b]/15"
@@ -77,7 +86,7 @@ export default function SeletorConcelho({
       </div>
 
       {aberto && (
-        <ul className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 max-h-64 overflow-y-auto rounded-lg border border-[#1A2E4F]/10 bg-white py-1 shadow-xl">
+        <ul id={idLista} role="listbox" className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 max-h-64 overflow-y-auto rounded-lg border border-[#1A2E4F]/10 bg-white py-1 shadow-xl">
           {resultados.length === 0 ? (
             <li className="px-3.5 py-3 text-sm text-[#1A2E4F]/50">Sem concelhos para “{termo}”</li>
           ) : (
@@ -85,6 +94,9 @@ export default function SeletorConcelho({
               <li key={c.id}>
                 <button
                   type="button"
+                  id={`${idLista}-${c.id}`}
+                  role="option"
+                  aria-selected={c.id === valor}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => escolher(c)}
                   onMouseEnter={() => setAtivo(indice)}
