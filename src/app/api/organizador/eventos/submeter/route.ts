@@ -307,13 +307,43 @@ export async function POST(req: Request) {
     entidadeId = corpo.entidadeId;
   }
 
-  let slugEvento = slug(validado.nome);
-  const { data: colisao } = await admin.from("festas").select("id").eq("concelho_id", concelho.id).eq("slug", slugEvento).maybeSingle();
-  if (colisao) slugEvento = `${slugEvento}-${crypto.randomUUID().slice(0, 6)}`;
+  // Uma festa com o mesmo nome no mesmo concelho e quase sempre a mesma festa.
+  // Antes o sistema criava calado uma segunda pagina com sufixo aleatorio, e
+  // ficavam duas URLs para a mesma romaria a dividir o SEO -- exatamente o que
+  // as URLs permanentes existem para evitar. Agora para e pergunta. Duas festas
+  // homonimas no mesmo concelho sao possiveis, por isso ha como insistir, mas
+  // tem de ser um ato deliberado.
+  const slugEvento = slug(validado.nome);
+  // Comparar pelo NOME normalizado, nunca pelo slug guardado: 19 das 31 festas
+  // do arranque têm slugs escritos à mão que não correspondem ao nome
+  // ("Romaria de Nossa Senhora d'Agonia" está como "romaria-da-agonia"), e uma
+  // deteção por slug falharia em silêncio precisamente nas festas maiores.
+  const { data: doConcelho } = await admin
+    .from("festas")
+    .select("id,nome,slug,entidade_id,concelhos(slug)")
+    .eq("concelho_id", concelho.id);
+  const colisao = (doConcelho ?? []).find(
+    (f) => slug(f.nome as string) === slugEvento || f.slug === slugEvento,
+  ) ?? null;
+
+  if (colisao && corpo.duplicadoConfirmado !== true) {
+    await desfazer(admin, null, rascunhoId, versao, user.id);
+    const concelhoSlug = (colisao as { concelhos?: { slug?: string } | null }).concelhos?.slug ?? concelho.slug;
+    return resposta({
+      error: "Já existe uma festa com este nome neste concelho.",
+      duplicado: {
+        nome: colisao.nome as string,
+        href: `/festas/${concelhoSlug}/${colisao.slug as string}`,
+        temDono: Boolean(colisao.entidade_id),
+      },
+    }, 409);
+  }
+
+  const slugFinal = colisao ? `${slugEvento}-${crypto.randomUUID().slice(0, 6)}` : slugEvento;
 
   let festaId: string | null = null;
   const { data: festa, error: erroFesta } = await admin.from("festas").insert({
-    slug: slugEvento,
+    slug: slugFinal,
     nome: validado.nome,
     concelho_id: concelho.id,
     freguesia: texto(validado.dados.freguesia, 100) || null,
@@ -378,6 +408,6 @@ export async function POST(req: Request) {
   if (operacoes.some((operacao) => operacao.error)) { await desfazer(admin, festaId, rascunhoId, versao, user.id); return resposta({ error: "Não foi possível guardar todo o conteúdo do evento." }, 502); }
 
   await admin.from("eventos_rascunho").delete().eq("id", rascunhoId).eq("user_id", user.id);
-  revalidarEvento(concelho.slug, slugEvento);
-  return resposta({ ok: true, href: `/festas/${concelho.slug}/${slugEvento}`, festaId, edicaoId: edicao.id }, 201);
+  revalidarEvento(concelho.slug, slugFinal);
+  return resposta({ ok: true, href: `/festas/${concelho.slug}/${slugFinal}`, festaId, edicaoId: edicao.id }, 201);
 }

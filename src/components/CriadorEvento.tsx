@@ -166,6 +166,9 @@ export default function CriadorEvento({
   // A festa pertence à entidade. Só se pergunta qual quando há mais do que uma
   // — com uma só, escolher não é uma decisão, é um passo a mais.
   const [entidadeId, setEntidadeId] = useState(entidades[0]?.id ?? "");
+  // Festa homónima encontrada no mesmo concelho — quase sempre é a mesma festa,
+  // por isso mostramo-la antes de deixar criar uma segunda página.
+  const [duplicado, setDuplicado] = useState<{ nome: string; href: string; temDono: boolean } | null>(null);
   const [novaTag, setNovaTag] = useState("");
   const [dados, setDados] = useState<DadosCriarEvento>(() => normalizarDadosEvento(rascunhoInicial?.dados ?? DADOS_EVENTO_VAZIOS));
   const [estadoGravacao, setEstadoGravacao] = useState<EstadoGravacao>(rascunhoInicial?.id ? "guardado" : "quieto");
@@ -284,7 +287,7 @@ export default function CriadorEvento({
     setNovaTag("");
   }
 
-  async function submeter() {
+  async function submeter(confirmarDuplicado = false) {
     const faltas = errosObrigatorios();
     if (faltas.length) {
       setErro(`Falta confirmar: ${faltas.join(", ")}.`);
@@ -294,14 +297,24 @@ export default function CriadorEvento({
     }
     setASubmeter(true);
     setErro("");
+    setDuplicado(null);
     try {
       const meta = await guardar(dados) as { id: string; versao: number };
       const resposta = await fetch("/api/organizador/eventos/submeter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rascunhoId: meta.id, versao: meta.versao, entidadeId: entidadeId || undefined }),
+        body: JSON.stringify({
+          rascunhoId: meta.id,
+          versao: meta.versao,
+          entidadeId: entidadeId || undefined,
+          duplicadoConfirmado: confirmarDuplicado || undefined,
+        }),
       });
       const corpo = await resposta.json().catch(() => ({}));
+      if (resposta.status === 409 && corpo.duplicado) {
+        setDuplicado(corpo.duplicado);
+        return;
+      }
       if (!resposta.ok) throw new Error(corpo.error || "Não foi possível submeter o evento.");
       setResultado({ href: corpo.href, nome: dados.nome.trim() });
       setEstadoGravacao("quieto");
@@ -420,6 +433,26 @@ export default function CriadorEvento({
             ].map(([termo, valor]) => <div key={termo} className="grid gap-1 px-4 py-3 sm:grid-cols-[150px_1fr]"><dt className="text-xs font-bold text-[#1A2E4F]/45">{termo}</dt><dd className={`text-sm font-semibold ${valor === "Em falta" ? "text-[#EC2456]" : "text-[#102745]"}`}>{valor}</dd></div>)}</dl>
             <div className="mt-5 rounded-lg bg-[#1A2E4F]/[0.035] p-4"><p className="text-sm font-bold text-[#102745]">O que acontece depois?</p><p className="mt-1 text-xs leading-relaxed text-[#1A2E4F]/60">{modo === "editar" ? "As alterações ficam visíveis no evento assim que guardares. Se o evento ainda estiver em revisão, continua a aguardar aprovação." : "A equipa revê os dados antes de colocar o evento no mapa. Enquanto estiver pendente, podes acompanhar o estado no perfil."}</p></div>
             {errosObrigatorios().length > 0 && <p className="mt-4 text-sm font-semibold text-[#EC2456]">Falta confirmar: {errosObrigatorios().join(", ")}.</p>}
+            {duplicado && (
+              <div className="mt-5 rounded-xl border border-[#F97B16]/35 bg-[#F97B16]/[0.06] p-4">
+                <p className="text-sm font-bold text-[#102745]">Esta festa já está no Achafestas</p>
+                <p className="mt-1 text-xs leading-relaxed text-[#1A2E4F]/70">
+                  Já existe <span className="font-semibold">{duplicado.nome}</span> neste concelho. Se for a mesma,
+                  criar outra página divide a informação por dois sítios e nenhum fica completo — o melhor é
+                  {duplicado.temDono ? " falares com quem já a gere." : " ficares com a que existe."}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a href={duplicado.href} target="_blank" rel="noopener noreferrer"
+                    className="cursor-pointer rounded-lg bg-[#EC2456] px-3.5 py-2 text-xs font-bold text-white transition hover:bg-[#d11a47]">
+                    {duplicado.temDono ? "Ver a página" : "Ver e reclamar"}
+                  </a>
+                  <button type="button" disabled={aSubmeter} onClick={() => void submeter(true)}
+                    className="cursor-pointer rounded-lg border border-[#1A2E4F]/20 px-3.5 py-2 text-xs font-bold text-[#1A2E4F]/70 transition hover:bg-[#1A2E4F]/[0.04] disabled:opacity-60">
+                    É uma festa diferente — criar mesmo assim
+                  </button>
+                </div>
+              </div>
+            )}
             <button type="button" disabled={aSubmeter} onClick={() => void submeter()} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#EC2456] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#d11a47] disabled:cursor-not-allowed disabled:opacity-60">{aSubmeter ? (modo === "editar" ? "A guardar…" : "A enviar…") : (modo === "editar" ? "Guardar alterações" : "Enviar para revisão")}<Icone tipo="seta" /></button>
           </div>}
 
