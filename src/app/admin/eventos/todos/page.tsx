@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import AdminTabs from "@/components/AdminTabs";
 import EstadoEventoOrganizador from "@/components/EstadoEventoOrganizador";
-import { supabaseServer } from "@/lib/supabase/server";
+import { ehAdmin } from "@/lib/admin";
 import { formatarDatas } from "@/lib/festa-ui";
 
 export const metadata: Metadata = { title: "Todos os eventos — Achafestas", robots: { index: false } };
@@ -44,53 +44,55 @@ const FILTROS = [
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-export default async function PaginaTodosEventos({ searchParams }: Props) {
-  const supabase = await supabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/");
-  const { data: perfil } = await supabase.from("perfis").select("papel").eq("id", user.id).single();
-  if (perfil?.papel !== "admin") redirect("/");
+type DadosTodos = {
+  eventos: Edicao[];
+  organizadores: Map<string, { nome: string | null; email: string | null }>;
+  indisponivel: boolean;
+};
 
+async function carregarEventos(estado: string): Promise<DadosTodos> {
+  const vazio: DadosTodos = { eventos: [], organizadores: new Map(), indisponivel: true };
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return vazio;
+
+  const cabecalhos = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+  const select =
+    "id,ano,data_inicio,data_fim,estado,cartaz_url,criado_por,submetida_em,nota_moderacao," +
+    "festas(nome,slug,freguesia,concelhos(nome,distrito,slug))";
+  const filtroEstado = estado ? `&estado=eq.${estado}` : "";
+  const resposta = await fetch(
+    `${url}/rest/v1/edicoes?select=${encodeURIComponent(select)}${filtroEstado}&order=data_inicio.desc&limit=400`,
+    { headers: cabecalhos, cache: "no-store" },
+  );
+  if (!resposta.ok) return vazio;
+
+  const eventos: Edicao[] = await resposta.json();
+  const organizadores = new Map<string, { nome: string | null; email: string | null }>();
+  const ids = [...new Set(eventos.map((e) => e.criado_por).filter((id): id is string => Boolean(id)))];
+  if (ids.length) {
+    const perfisResposta = await fetch(
+      `${url}/rest/v1/perfis?id=in.(${ids.join(",")})&select=id,nome,email`,
+      { headers: cabecalhos, cache: "no-store" },
+    );
+    if (perfisResposta.ok) {
+      const linhas: { id: string; nome: string | null; email: string | null }[] = await perfisResposta.json();
+      for (const l of linhas) organizadores.set(l.id, { nome: l.nome, email: l.email });
+    }
+  }
+  return { eventos, organizadores, indisponivel: false };
+}
+
+export default async function PaginaTodosEventos({ searchParams }: Props) {
   const parametros = await searchParams;
   const estadoBruto = typeof parametros.estado === "string" ? parametros.estado : "";
   const estado = estadoBruto in ESTADOS ? estadoBruto : "";
   const procura = (typeof parametros.q === "string" ? parametros.q : "").trim().slice(0, 80);
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  let eventos: Edicao[] = [];
-  let organizadores = new Map<string, { nome: string | null; email: string | null }>();
-  let indisponivel = false;
-
-  if (url && serviceKey) {
-    const cabecalhos = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
-    const select =
-      "id,ano,data_inicio,data_fim,estado,cartaz_url,criado_por,submetida_em,nota_moderacao," +
-      "festas(nome,slug,freguesia,concelhos(nome,distrito,slug))";
-    const filtroEstado = estado ? `&estado=eq.${estado}` : "";
-    const resposta = await fetch(
-      `${url}/rest/v1/edicoes?select=${encodeURIComponent(select)}${filtroEstado}&order=data_inicio.desc&limit=400`,
-      { headers: cabecalhos, cache: "no-store" },
-    );
-    if (resposta.ok) {
-      eventos = await resposta.json();
-      const ids = [...new Set(eventos.map((e) => e.criado_por).filter((id): id is string => Boolean(id)))];
-      if (ids.length) {
-        const perfisResposta = await fetch(
-          `${url}/rest/v1/perfis?id=in.(${ids.join(",")})&select=id,nome,email`,
-          { headers: cabecalhos, cache: "no-store" },
-        );
-        if (perfisResposta.ok) {
-          const linhas: { id: string; nome: string | null; email: string | null }[] = await perfisResposta.json();
-          organizadores = new Map(linhas.map((l) => [l.id, { nome: l.nome, email: l.email }]));
-        }
-      }
-    } else {
-      indisponivel = true;
-    }
-  } else {
-    indisponivel = true;
-  }
+  // Portão e dados em paralelo — ver a nota em @/lib/admin.
+  const [admin, dados] = await Promise.all([ehAdmin(), carregarEventos(estado)]);
+  if (!admin) redirect("/");
+  const { eventos, organizadores, indisponivel } = dados;
 
   // A pesquisa cobre nome, concelho e distrito — poucos registos, filtrar aqui
   // evita filtros encadeados no PostgREST sobre relações embutidas.

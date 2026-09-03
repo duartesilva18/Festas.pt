@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import AdminTabs from "@/components/AdminTabs";
 import ModerarCritica from "@/components/ModerarCritica";
-import { supabaseServer } from "@/lib/supabase/server";
+import { ehAdmin } from "@/lib/admin";
 
 export const metadata: Metadata = { title: "Moderação de críticas — Achafestas", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -22,29 +22,25 @@ function quando(data: string) {
   return new Intl.DateTimeFormat("pt-PT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(data));
 }
 
-export default async function PaginaModeracao() {
-  const supabase = await supabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/");
-  const { data: perfil } = await supabase.from("perfis").select("papel").eq("id", user.id).single();
-  if (perfil?.papel !== "admin") redirect("/");
-
+async function carregarCriticas(): Promise<{ pendentes: CriticaPendente[]; indisponivel: boolean }> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  let pendentes: CriticaPendente[] = [];
-  let indisponivel = false;
+  if (!url || !serviceKey) return { pendentes: [], indisponivel: true };
 
-  if (url && serviceKey) {
-    const select = "id,autor_nome,autor_id,nota,texto,created_at,festas(nome,slug,concelhos(nome,slug))";
-    const resposta = await fetch(
-      `${url}/rest/v1/criticas?estado=eq.pendente&select=${encodeURIComponent(select)}&order=created_at.asc&limit=100`,
-      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }, cache: "no-store" },
-    );
-    if (resposta.ok) pendentes = await resposta.json();
-    else indisponivel = true;
-  } else {
-    indisponivel = true;
-  }
+  const select = "id,autor_nome,autor_id,nota,texto,created_at,festas(nome,slug,concelhos(nome,slug))";
+  const resposta = await fetch(
+    `${url}/rest/v1/criticas?estado=eq.pendente&select=${encodeURIComponent(select)}&order=created_at.asc&limit=100`,
+    { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }, cache: "no-store" },
+  );
+  if (!resposta.ok) return { pendentes: [], indisponivel: true };
+  return { pendentes: await resposta.json(), indisponivel: false };
+}
+
+export default async function PaginaModeracao() {
+  // Portão e dados em paralelo — ver a nota em @/lib/admin.
+  const [admin, dados] = await Promise.all([ehAdmin(), carregarCriticas()]);
+  if (!admin) redirect("/");
+  const { pendentes, indisponivel } = dados;
 
   return (
     <div className="min-h-dvh bg-white text-[#1A2E4F]">

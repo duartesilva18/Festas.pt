@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import AdminTabs from "@/components/AdminTabs";
 import ModerarEvento from "@/components/ModerarEvento";
-import { supabaseServer } from "@/lib/supabase/server";
+import { ehAdmin } from "@/lib/admin";
 import { formatarDatas } from "@/lib/festa-ui";
 
 export const metadata: Metadata = { title: "Moderação de eventos — Achafestas", robots: { index: false } };
@@ -46,47 +46,51 @@ function quando(data: string | null) {
   return new Intl.DateTimeFormat("pt-PT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(data));
 }
 
-export default async function PaginaModeracaoEventos() {
-  const supabase = await supabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/");
-  const { data: perfil } = await supabase.from("perfis").select("papel").eq("id", user.id).single();
-  if (perfil?.papel !== "admin") redirect("/");
+type DadosPagina = {
+  pendentes: EdicaoPendente[];
+  organizadores: Map<string, { nome: string | null; email: string | null }>;
+  indisponivel: boolean;
+};
 
+async function carregarPendentes(): Promise<DadosPagina> {
+  const vazio: DadosPagina = { pendentes: [], organizadores: new Map(), indisponivel: true };
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  let pendentes: EdicaoPendente[] = [];
-  let organizadores = new Map<string, { nome: string | null; email: string | null }>();
-  let indisponivel = false;
+  if (!url || !serviceKey) return vazio;
 
-  if (url && serviceKey) {
-    const cabecalhos = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
-    const select =
-      "id,ano,data_inicio,data_fim,padrao_recorrencia,dias_semana,cartaz_url,fotos,resumo,descricao,programa,contactos,submetida_em,criado_por," +
-      "festas(nome,slug,freguesia,local_nome,morada,categoria_principal,formato_evento,concelhos(nome,slug))";
-    const resposta = await fetch(
-      `${url}/rest/v1/edicoes?estado=eq.pendente&select=${encodeURIComponent(select)}&order=submetida_em.asc&limit=100`,
+  const cabecalhos = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+  const select =
+    "id,ano,data_inicio,data_fim,padrao_recorrencia,dias_semana,cartaz_url,fotos,resumo,descricao,programa,contactos,submetida_em,criado_por," +
+    "festas(nome,slug,freguesia,local_nome,morada,categoria_principal,formato_evento,concelhos(nome,slug))";
+  const resposta = await fetch(
+    `${url}/rest/v1/edicoes?estado=eq.pendente&select=${encodeURIComponent(select)}&order=submetida_em.asc&limit=100`,
+    { headers: cabecalhos, cache: "no-store" },
+  );
+  if (!resposta.ok) return vazio;
+
+  const pendentes: EdicaoPendente[] = await resposta.json();
+  const organizadores = new Map<string, { nome: string | null; email: string | null }>();
+  const ids = [...new Set(pendentes.map((e) => e.criado_por).filter((id): id is string => Boolean(id)))];
+  if (ids.length) {
+    const perfisResposta = await fetch(
+      `${url}/rest/v1/perfis?id=in.(${ids.join(",")})&select=id,nome,email`,
       { headers: cabecalhos, cache: "no-store" },
     );
-    if (resposta.ok) {
-      pendentes = await resposta.json();
-      const ids = [...new Set(pendentes.map((e) => e.criado_por).filter((id): id is string => Boolean(id)))];
-      if (ids.length) {
-        const perfisResposta = await fetch(
-          `${url}/rest/v1/perfis?id=in.(${ids.join(",")})&select=id,nome,email`,
-          { headers: cabecalhos, cache: "no-store" },
-        );
-        if (perfisResposta.ok) {
-          const linhas: { id: string; nome: string | null; email: string | null }[] = await perfisResposta.json();
-          organizadores = new Map(linhas.map((l) => [l.id, { nome: l.nome, email: l.email }]));
-        }
-      }
-    } else {
-      indisponivel = true;
+    if (perfisResposta.ok) {
+      const linhas: { id: string; nome: string | null; email: string | null }[] = await perfisResposta.json();
+      for (const l of linhas) organizadores.set(l.id, { nome: l.nome, email: l.email });
     }
-  } else {
-    indisponivel = true;
   }
+  return { pendentes, organizadores, indisponivel: false };
+}
+
+export default async function PaginaModeracaoEventos() {
+  // Portão e dados em paralelo: encadeá-los custava dois round-trips ao
+  // Estocolmo antes de a página começar a renderizar. Os dados são lidos com a
+  // service key e descartados aqui mesmo se o portão fechar.
+  const [admin, dados] = await Promise.all([ehAdmin(), carregarPendentes()]);
+  if (!admin) redirect("/");
+  const { pendentes, organizadores, indisponivel } = dados;
 
   return (
     <div className="min-h-dvh bg-white text-[#1A2E4F]">
