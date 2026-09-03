@@ -8,6 +8,7 @@ import ImagemAmpliavel from "@/components/ImagemAmpliavel";
 import Navbar from "@/components/Navbar";
 import { nomeCategoriaPrincipal } from "@/lib/criar-evento";
 import { fetchFestaDetalhe, type FestaDetalhe } from "@/lib/festa-detalhe";
+import SeloProvisorio from "@/components/SeloProvisorio";
 import { CORES, ETIQUETAS, formatarDiaPrograma, formatarLocalizacao, resumoDatas } from "@/lib/festa-ui";
 
 export const revalidate = 3600;
@@ -183,6 +184,7 @@ export default async function PaginaFesta({ params }: Params) {
                   <dd>
                     <p className="font-semibold">{formatarIntervalo(festa.dataInicio, festa.dataFim, festa.tipoRecorrencia, festa.diasSemana)}</p>
                     <p className="text-[13px] text-[#1A2E4F]/50">Edição de {festa.ano}</p>
+                    {festa.estado === "provisoria" && <SeloProvisorio className="mt-2" />}
                   </dd>
                 </div>
                 <div className="flex gap-3 border-t border-[#1A2E4F]/8 pt-3">

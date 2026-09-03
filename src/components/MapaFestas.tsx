@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentPropsWithoutRef, type CSSProperties, type ForwardRefExoticComponent, type PointerEvent as ReactPointerEvent, type RefAttributes } from "react";
 import CarregamentoMapa from "@/components/CarregamentoMapa";
+import SeloProvisorio from "@/components/SeloProvisorio";
 import CartazFallback from "@/components/CartazFallback";
 import type FestaMapBase from "@/components/FestaMap";
 import type { FestaMapHandle } from "@/components/FestaMap";
@@ -532,7 +533,7 @@ function DetalheFesta({
             ) : (
               <p className="mt-3 rounded-lg bg-[#f3f6f8] p-4 text-sm text-[#1A2E4F]/65">O cartaz desta edição será publicado em breve.</p>
             )}
-            <div className="mt-4 rounded-xl border border-[#1A2E4F]/10 bg-[#f8fafb] px-4 py-3"><p className="text-[11px] font-bold uppercase tracking-wide text-[#1A2E4F]/45">Marca na agenda</p><p className="mt-1 text-sm font-semibold text-[#102745]">{datas.principal}</p>{datas.secundario && <p className="mt-0.5 text-xs text-[#1A2E4F]/55">{datas.secundario}</p>}</div>
+            <div className="mt-4 rounded-xl border border-[#1A2E4F]/10 bg-[#f8fafb] px-4 py-3"><p className="text-[11px] font-bold uppercase tracking-wide text-[#1A2E4F]/45">Marca na agenda</p><p className="mt-1 text-sm font-semibold text-[#102745]">{datas.principal}</p>{datas.secundario && <p className="mt-0.5 text-xs text-[#1A2E4F]/55">{datas.secundario}</p>}{p.estado === "provisoria" && <SeloProvisorio className="mt-2" />}</div>
           </section>
         )}
 
@@ -816,8 +817,9 @@ export default function MapaFestas({ dados }: { dados: FestasGeoJSON }) {
     }
     // Rede de segurança: se o mapa nunca se declarar pronto (tiles em falta,
     // ligação péssima), mais vale mostrar o que houver do que deixar o
-    // utilizador preso atrás de um ecrã opaco para sempre.
-    setCarregamentoVisivel(true);
+    // utilizador preso atrás de um ecrã opaco para sempre. O ecrã já arranca
+    // visível e, se o mapa falhar depois de montar, `erroMapa` esconde-o — não
+    // é preciso voltar a ligá-lo aqui.
     const desistir = window.setTimeout(() => setCarregamentoVisivel(false), 8_000);
     return () => window.clearTimeout(desistir);
   }, [mapaPronto]);

@@ -73,16 +73,20 @@ type LinhaEdicao = {
   edicoes_sublocalizacoes: { id: string; nome: string; tipo: SubLocalizacao["tipo"]; descricao: string | null; location: string; estado: "rascunho" | "confirmada" | "rejeitada"; visivel: boolean }[] | null;
 };
 
-// Escolhe a edição mais relevante: a próxima confirmada; senão a mais recente.
+// Escolhe a edição mais relevante: a próxima publicada; senão a mais recente.
+// As provisórias (geradas pelo rollover anual) contam: sem elas, uma festa que
+// aparece no mapa com datas por confirmar não teria página nenhuma para abrir.
+// Entre duas edições a começar no mesmo dia, a confirmada ganha à provisória.
 function escolherEdicao(edicoes: LinhaEdicao[]): LinhaEdicao | null {
   if (!edicoes?.length) return null;
   const hoje = new Date().toISOString().slice(0, 10);
-  const confirmadas = edicoes.filter((e) => e.estado === "confirmada");
-  const futuras = confirmadas
+  const prioridade = (e: LinhaEdicao) => (e.estado === "confirmada" ? 0 : 1);
+  const publicadas = edicoes.filter((e) => e.estado === "confirmada" || e.estado === "provisoria");
+  const futuras = publicadas
     .filter((e) => (e.data_fim ?? e.data_inicio) >= hoje)
-    .sort((a, b) => a.data_inicio.localeCompare(b.data_inicio));
+    .sort((a, b) => a.data_inicio.localeCompare(b.data_inicio) || prioridade(a) - prioridade(b));
   if (futuras.length) return futuras[0];
-  const passadas = [...confirmadas].sort((a, b) => b.data_inicio.localeCompare(a.data_inicio));
+  const passadas = [...publicadas].sort((a, b) => b.data_inicio.localeCompare(a.data_inicio) || prioridade(a) - prioridade(b));
   return passadas[0] ?? null;
 }
 
