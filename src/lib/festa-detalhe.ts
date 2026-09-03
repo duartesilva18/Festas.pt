@@ -13,6 +13,7 @@ export type SubLocalizacao = {
 
 export type FestaDetalhe = {
   nome: string;
+  entidade: string | null;
   slug: string;
   freguesia: string | null;
   descricao: string | null;
@@ -100,7 +101,7 @@ export const fetchFestaDetalhe = cache(async function fetchFestaDetalhe(
 
   const select =
     "nome,slug,freguesia,descricao,categorias,categoria_principal,formato_evento,tags_evento,tipo_recorrencia,location," +
-    "concelhos!inner(nome,slug,distrito)," +
+    "concelhos!inner(nome,slug,distrito),entidades(nome)," +
     "edicoes(ano,data_inicio,data_fim,estado,programa,cartaz_url,fotos,caracteristicas,fonte_url,padrao_recorrencia,dias_semana,edicoes_sublocalizacoes(id,nome,tipo,descricao,location,ordem,estado,visivel))";
   const query =
     `${url}/rest/v1/festas?slug=eq.${encodeURIComponent(slug)}` +
@@ -124,6 +125,7 @@ export const fetchFestaDetalhe = cache(async function fetchFestaDetalhe(
 
   return {
     nome: f.nome,
+    entidade: (f as { entidades?: { nome?: string } | null }).entidades?.nome ?? null,
     slug: f.slug,
     freguesia: f.freguesia,
     descricao: f.descricao,

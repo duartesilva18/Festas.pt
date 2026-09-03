@@ -154,13 +154,18 @@ export default function CriadorEvento({
   rascunhoInicial,
   edicaoOrigem = null,
   modo = "novo",
+  entidades = [],
 }: {
   concelhos: Concelho[];
   rascunhoInicial: RascunhoEvento | null;
   edicaoOrigem?: string | null;
   modo?: "novo" | "editar" | "duplicar";
+  entidades?: { id: string; nome: string }[];
 }) {
   const [passo, setPasso] = useState(0);
+  // A festa pertence à entidade. Só se pergunta qual quando há mais do que uma
+  // — com uma só, escolher não é uma decisão, é um passo a mais.
+  const [entidadeId, setEntidadeId] = useState(entidades[0]?.id ?? "");
   const [novaTag, setNovaTag] = useState("");
   const [dados, setDados] = useState<DadosCriarEvento>(() => normalizarDadosEvento(rascunhoInicial?.dados ?? DADOS_EVENTO_VAZIOS));
   const [estadoGravacao, setEstadoGravacao] = useState<EstadoGravacao>(rascunhoInicial?.id ? "guardado" : "quieto");
@@ -294,7 +299,7 @@ export default function CriadorEvento({
       const resposta = await fetch("/api/organizador/eventos/submeter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rascunhoId: meta.id, versao: meta.versao }),
+        body: JSON.stringify({ rascunhoId: meta.id, versao: meta.versao, entidadeId: entidadeId || undefined }),
       });
       const corpo = await resposta.json().catch(() => ({}));
       if (!resposta.ok) throw new Error(corpo.error || "Não foi possível submeter o evento.");
@@ -349,6 +354,14 @@ export default function CriadorEvento({
         <section className="min-w-0 rounded-xl border border-[#1A2E4F]/10 bg-white p-5 shadow-sm sm:p-7">
           {passo === 0 && <div>
             <CabecalhoSecao titulo="Dados principais" descricao="São os únicos dados necessários para começares. O resto pode ser acrescentado depois." />
+            {entidades.length > 1 && (
+              <label className={`${labelClasse} mb-5`}>Entidade responsável
+                <select value={entidadeId} onChange={(e) => setEntidadeId(e.target.value)} className={inputClasse}>
+                  {entidades.map((entidade) => <option key={entidade.id} value={entidade.id}>{entidade.nome}</option>)}
+                </select>
+                <span className="mt-1 block text-xs font-normal text-[#1A2E4F]/50">A festa fica a pertencer a esta entidade, não à tua conta pessoal.</span>
+              </label>
+            )}
             <div className="space-y-5">
               <label className={labelClasse}>Nome do evento <span className="text-[#EC2456]">*</span><input maxLength={140} value={dados.nome} onChange={(e) => alterar("nome", e.target.value)} placeholder="Ex.: Feiras Novas" className={classeCampo(mostrarErros && dados.nome.trim().length < 3)} /></label>
               <fieldset>

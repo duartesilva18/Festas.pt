@@ -51,6 +51,15 @@ type CriticaRecebida = {
 };
 
 const PAPEIS: Record<string, string> = { membro: "Membro", organizador: "Organizador", admin: "Administrador" };
+// Os mesmos cinco tipos que o formulário de pedido aceita.
+const TIPOS_ENTIDADE: Record<string, string> = {
+  junta_freguesia: "Junta de freguesia",
+  camara_municipal: "Câmara municipal",
+  comissao_festas: "Comissão de festas",
+  associacao: "Associação",
+  outro: "Outro",
+};
+
 const ESTADOS_EVENTO: Record<EventoCriado["estado"], { texto: string; classe: string }> = {
   confirmada: { texto: "Publicado", classe: "bg-[#20856D]/10 text-[#15705c]" },
   pendente: { texto: "Em revisão", classe: "bg-[#F97B16]/10 text-[#bb5000]" },
@@ -91,11 +100,17 @@ export default async function PaginaPerfil() {
   const papel = (perfil?.papel as string) ?? "membro";
   const verificado = papel === "organizador" || papel === "admin";
 
-  const [{ data: favoritos }, { data: pedidos }, { data: edicoes }] = await Promise.all([
+  const [{ data: favoritos }, { data: pedidos }, { data: edicoes }, { data: pertencas }] = await Promise.all([
     supabase.from("favoritos").select("festa_id,created_at").eq("user_id", user.id),
     supabase.from("pedidos_organizador").select("id,nome_entidade,estado,nota_admin,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1),
     supabase.from("edicoes").select("id,ano,data_inicio,data_fim,dias_semana,estado,cartaz_url,created_at,nota_moderacao,festa:festas(id,slug,nome,concelho,concelho_slug,distrito,tipo_recorrencia)").eq("criado_por", user.id).order("data_inicio", { ascending: false }),
+    supabase.from("entidade_membros").select("papel,entidades(nome,tipo,concelho_id,link,contacto)").eq("user_id", user.id),
   ]);
+
+  const entidades = (pertencas ?? []).map((linha) => {
+    const e = (linha as { entidades?: { nome?: string; tipo?: string; link?: string | null } | null }).entidades;
+    return e ? { nome: e.nome ?? "", tipo: e.tipo ?? "outro", link: e.link ?? null, papel: (linha as { papel?: string }).papel ?? "membro" } : null;
+  }).filter((e): e is { nome: string; tipo: string; link: string | null; papel: string } => e !== null);
 
   const ids = (favoritos ?? []).map((f) => f.festa_id as string);
   let festas: FestaGuardada[] = [];
@@ -165,7 +180,22 @@ export default async function PaginaPerfil() {
               {verificado && pedido?.estado === "aprovado" ? <AvisoOrganizador userId={user.id} pedidoId={pedido.id} /> : null}
               {pedido?.estado === "pendente" && <EscutaPedidoOrganizador pedidoId={pedido.id} estadoInicial={pedido.estado} />}
               {verificado ? (
-                <div className="mt-5 rounded-xl bg-[#1A2E4F]/[0.035] p-4"><p className="text-sm font-semibold text-[#102745]">O teu espaço de organização está ativo.</p><p className="mt-1 text-xs leading-relaxed text-[#1A2E4F]/60">Cria eventos, acompanha o estado de publicação e mantém as informações da tua entidade atualizadas.</p><Link href="/criar-evento" className="mt-4 inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-[#EC2456] transition hover:text-[#d11a47]"><Icone tipo="mais" />Criar um evento</Link></div>
+                <div className="mt-5 rounded-xl bg-[#1A2E4F]/[0.035] p-4">
+                  {entidades.length > 0 ? (
+                    <ul className="mb-4 space-y-2">
+                      {entidades.map((entidade) => (
+                        <li key={entidade.nome} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="text-sm font-bold text-[#102745]">{entidade.nome}</span>
+                          <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#1A2E4F]/55">{TIPOS_ENTIDADE[entidade.tipo] ?? "Entidade"}</span>
+                          {entidade.papel === "dono" && <span className="text-[10px] font-bold uppercase tracking-wide text-[#EC2456]">Responsável</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  <p className="text-sm font-semibold text-[#102745]">O teu espaço de organização está ativo.</p>
+                  <p className="mt-1 text-xs leading-relaxed text-[#1A2E4F]/60">Cria eventos e acompanha o estado de publicação. As festas pertencem à entidade, por isso ficam acessíveis a quem a representa.</p>
+                  <Link href="/criar-evento" className="mt-4 inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-[#EC2456] transition hover:text-[#d11a47]"><Icone tipo="mais" />Criar um evento</Link>
+                </div>
               ) : pedido?.estado === "pendente" ? (
                 <div className="mt-5 flex items-start gap-3 rounded-xl border border-[#F97B16]/25 bg-[#F97B16]/[0.05] p-4"><span className="mt-0.5 text-[#d65c00]"><Icone tipo="calendario" /></span><div><p className="text-sm font-bold text-[#102745]">Pedido em análise</p><p className="mt-1 text-xs leading-relaxed text-[#1A2E4F]/60">O pedido para <span className="font-semibold">{pedido.nome_entidade}</span> foi recebido. Damos-te resposta aqui em breve.</p></div></div>
               ) : pedido?.estado === "rejeitado" ? (

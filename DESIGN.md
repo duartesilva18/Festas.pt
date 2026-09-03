@@ -29,3 +29,31 @@ Gradiente da marca (hero, botão "Entrar", faixa da navbar): `#F97B16` → `#EC2
 - `cancelada` = slate com strikethrough; `provisoria` = contorno tracejado
 - Raios de canto discretos: 4–8px (nada de `rounded-2xl`/pílulas grandes — dá ar de jogo)
 - Tipografia: system-ui/Geist, pesos 400/700; wordmark em 800
+
+## Destaque pago — o que a cor pode e não pode dizer
+
+O modelo de negócio decidido é: **publicar é sempre grátis, paga-se por
+visibilidade**. Isso obriga a uma regra que não pode ser esquecida:
+
+> **A cor no mapa significa tempo, nunca patrocínio.** Vermelho é "a decorrer",
+> laranja é "nos próximos 7 dias", slate é "mais tarde". Um pin patrocinado
+> pintado de dourado partiria a única linguagem que o mapa tem.
+
+O destaque usa **outras dimensões**: tamanho, um anel à volta do pin, prioridade
+no agrupamento (nunca ser escondido dentro de um cluster), e lugar no topo do
+painel lateral e da pesquisa. Qualquer uma delas tem de estar **identificada como
+patrocinada** — colocação paga sem etiqueta engana quem procura festas, e a
+credibilidade é o único ativo que um site destes tem.
+
+Nota técnica: escapar ao agrupamento exige uma **camada separada** no MapLibre.
+O mapa agrupa tudo até `clusterMaxZoom: 11` (`src/components/FestaMap.tsx`), por
+isso um pin patrocinado ficaria escondido dentro de um cluster precisamente nos
+zooms em que interessa.
+
+## Propriedade das festas
+
+Uma festa pertence a uma **entidade** (`festas.entidade_id`), não a uma conta
+pessoal. `criado_por` regista quem submeteu e mantém-lhe o acesso, mas quem gere
+é quem pertence à entidade — é o que permite que uma comissão de festas não perca
+a página quando muda de secretário. As 31 festas do seed inicial têm entidade
+nula: sem dono, geridas só por admin.

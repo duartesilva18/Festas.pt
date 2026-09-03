@@ -38,43 +38,49 @@ export async function POST(req: Request) {
     "Content-Type": "application/json",
   };
 
+  // Aprovar é uma operação de três passos — marcar o pedido, criar a entidade
+  // com a pessoa como dona, e promover o perfil. Feitos em chamadas separadas,
+  // uma falha a meio deixava um organizador aprovado sem entidade nenhuma, que
+  // é pior do que não o aprovar. Por isso vai tudo numa função atómica.
+  if (acao === "aprovar") {
+    const resposta = await fetch(`${url}/rest/v1/rpc/aprovar_pedido_organizador`, {
+      method: "POST",
+      headers: cabecalhos,
+      body: JSON.stringify({ p_pedido_id: id, p_nota: nota || null }),
+      cache: "no-store",
+    });
+    if (!resposta.ok) {
+      const detalhe = await resposta.text();
+      if (detalhe.includes("PEDIDO_NAO_PENDENTE")) {
+        return NextResponse.json({ error: "O pedido já foi moderado." }, { status: 409 });
+      }
+      return NextResponse.json({ error: "Não foi possível aprovar o pedido." }, { status: 502 });
+    }
+    const entidadeId = await resposta.json().catch(() => null);
+    return NextResponse.json({ ok: true, entidadeId });
+  }
+
+  // Rejeitar não cria nada, portanto continua a ser um PATCH simples. O filtro
+  // por estado pendente impede reescrever uma decisão já tomada.
   const resposta = await fetch(
     `${url}/rest/v1/pedidos_organizador?id=eq.${encodeURIComponent(id)}&estado=eq.pendente`,
     {
       method: "PATCH",
       headers: { ...cabecalhos, Prefer: "return=representation" },
       body: JSON.stringify({
-        estado: acao === "aprovar" ? "aprovado" : "rejeitado",
+        estado: "rejeitado",
         nota_admin: nota || null,
         moderado_em: new Date().toISOString(),
       }),
       cache: "no-store",
     },
   );
-
   if (!resposta.ok) {
     return NextResponse.json({ error: "Não foi possível moderar o pedido." }, { status: 502 });
   }
   const linhas = await resposta.json().catch(() => []);
   if (!Array.isArray(linhas) || linhas.length === 0) {
     return NextResponse.json({ error: "O pedido já foi moderado." }, { status: 409 });
-  }
-
-  // Ao aprovar, promove o perfil a organizador — só se ainda for membro,
-  // para nunca despromover um admin.
-  if (acao === "aprovar") {
-    const userId = linhas[0]?.user_id as string | undefined;
-    if (userId && UUID.test(userId)) {
-      await fetch(
-        `${url}/rest/v1/perfis?id=eq.${encodeURIComponent(userId)}&papel=eq.membro`,
-        {
-          method: "PATCH",
-          headers: cabecalhos,
-          body: JSON.stringify({ papel: "organizador" }),
-          cache: "no-store",
-        },
-      );
-    }
   }
 
   return NextResponse.json({ ok: true });

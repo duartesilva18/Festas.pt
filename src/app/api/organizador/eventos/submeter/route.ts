@@ -289,6 +289,24 @@ export async function POST(req: Request) {
     return resposta({ ok: true, href: `/festas/${concelho.slug}/${festaAtual?.slug ?? ""}`, festaId: original.festa_id, edicaoId: original.id, atualizado: true });
   }
 
+  // A festa pertence à entidade, não à pessoa. Se o utilizador pertencer a mais
+  // do que uma, o corpo do pedido diz qual — e confirmamos sempre a pertença,
+  // nunca aceitando o id vindo do cliente sem verificação. Um admin sem
+  // entidade nenhuma cria com entidade_id nulo, como as festas do seed.
+  const { data: pertencas } = await admin
+    .from("entidade_membros")
+    .select("entidade_id")
+    .eq("user_id", user.id);
+  const idsEntidade = (pertencas ?? []).map((linha) => linha.entidade_id as string);
+  let entidadeId: string | null = idsEntidade[0] ?? null;
+  if (typeof corpo.entidadeId === "string" && UUID.test(corpo.entidadeId)) {
+    if (!idsEntidade.includes(corpo.entidadeId)) {
+      await desfazer(admin, null, rascunhoId, versao, user.id);
+      return resposta({ error: "Não pertences a essa entidade." }, 403);
+    }
+    entidadeId = corpo.entidadeId;
+  }
+
   let slugEvento = slug(validado.nome);
   const { data: colisao } = await admin.from("festas").select("id").eq("concelho_id", concelho.id).eq("slug", slugEvento).maybeSingle();
   if (colisao) slugEvento = `${slugEvento}-${crypto.randomUUID().slice(0, 6)}`;
@@ -307,6 +325,7 @@ export async function POST(req: Request) {
     tags_evento: validado.tags,
     tipo_recorrencia: validado.dados.recorrencia,
     criado_por: user.id,
+    entidade_id: entidadeId,
     local_nome: texto(validado.dados.localNome, 120) || null,
     morada: texto(validado.dados.morada, 220) || null,
     codigo_postal: validado.codigoPostal,

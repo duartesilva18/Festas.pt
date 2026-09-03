@@ -25,9 +25,10 @@ export default async function CriarEventoPage({
   const paraDuplicar = typeof parametros.duplicar === "string" && UUID.test(parametros.duplicar) ? parametros.duplicar : null;
   const origem = paraEditar ?? paraDuplicar;
 
-  const [{ data: perfil }, { data: concelhos }] = await Promise.all([
+  const [{ data: perfil }, { data: concelhos }, { data: pertencas }] = await Promise.all([
     supabase.from("perfis").select("papel").eq("id", user.id).single(),
     supabase.from("concelhos").select("id,nome,distrito").order("nome"),
+    supabase.from("entidade_membros").select("entidade_id,entidades(nome)").eq("user_id", user.id),
   ]);
 
   if (perfil?.papel !== "organizador" && perfil?.papel !== "admin") redirect("/perfil");
@@ -84,6 +85,10 @@ export default async function CriarEventoPage({
         rascunhoInicial={rascunhoInicial}
         edicaoOrigem={edicaoOrigem}
         modo={modo}
+        entidades={(pertencas ?? []).map((linha) => ({
+          id: linha.entidade_id as string,
+          nome: (linha as { entidades?: { nome?: string } | null }).entidades?.nome ?? "Entidade",
+        }))}
       />
     </div>
   );

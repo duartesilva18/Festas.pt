@@ -187,6 +187,15 @@ export default async function PaginaFesta({ params }: Params) {
                     {festa.estado === "provisoria" && <SeloProvisorio className="mt-2" />}
                   </dd>
                 </div>
+                {festa.entidade && (
+                <div className="flex gap-3 border-t border-[#1A2E4F]/8 pt-3">
+                  <dt className="mt-0.5 text-[#1A2E4F]/40"><Icone d="M3 21h18 M5 21V7l7-4 7 4v14 M9 21v-5h6v5" /></dt>
+                  <dd>
+                    <p className="text-[13px] text-[#1A2E4F]/50">Organizado por</p>
+                    <p className="font-semibold">{festa.entidade}</p>
+                  </dd>
+                </div>
+                )}
                 <div className="flex gap-3 border-t border-[#1A2E4F]/8 pt-3">
                   <dt className="mt-0.5 text-[#1A2E4F]/40"><Icone d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /></dt>
                   <dd className="text-[#1A2E4F]/80">{local}</dd>
