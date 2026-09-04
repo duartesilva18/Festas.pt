@@ -1,6 +1,19 @@
 import { nomeCategoriaPrincipal } from "@/lib/criar-evento";
 
-const ESTILOS: Record<string, { fundo: string; cor: string; icone: string }> = {
+export type EstiloCategoria = { fundo: string; cor: string; icone: string };
+
+const NEUTRO: EstiloCategoria = {
+  fundo: "from-[#EEF1F5] to-[#F7F3F0]",
+  cor: "text-[#516078]",
+  icone: "M12 21s-7-6-7-11a7 7 0 1 1 14 0c0 5-7 11-7 11Zm0-8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+};
+
+/** Gradiente e ícone da categoria, para quem precisa do mesmo visual noutro tamanho. */
+export function estiloCategoria(categoria: string): EstiloCategoria {
+  return ESTILOS[categoria] ?? NEUTRO;
+}
+
+const ESTILOS: Record<string, EstiloCategoria> = {
   festa_popular: { fundo: "from-[#FFF3E8] to-[#FCE8EE]", cor: "text-[#C91F4D]", icone: "M4 19h16M6 16l2-9 4 5 4-8 2 12M8 7l-2-3M16 4l2-2" },
   musica_noite: { fundo: "from-[#EEEAF5] to-[#F8EAF0]", cor: "text-[#70429B]", icone: "M9 18V6l10-2v12M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm10-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" },
   gastronomia: { fundo: "from-[#FFF4E8] to-[#F8EDE2]", cor: "text-[#A95527]", icone: "M5 3v7a3 3 0 0 0 3 3V3M6.5 3v18M18 3c-2 0-3 3-3 6s1 4 3 4v8" },
@@ -22,7 +35,7 @@ export default function CartazFallback({
   className?: string;
   mostrarNome?: boolean;
 }) {
-  const estilo = ESTILOS[categoria] ?? { fundo: "from-[#EEF1F5] to-[#F7F3F0]", cor: "text-[#516078]", icone: "M12 21s-7-6-7-11a7 7 0 1 1 14 0c0 5-7 11-7 11Zm0-8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" };
+  const estilo = estiloCategoria(categoria);
   return (
     <div className={`relative flex overflow-hidden bg-gradient-to-br ${estilo.fundo} ${className}`}>
       <svg aria-hidden="true" className={`absolute -right-5 -top-7 size-36 opacity-[0.08] ${estilo.cor}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"><path d={estilo.icone} /></svg>

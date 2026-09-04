@@ -14,6 +14,7 @@ export default async function Home() {
     nome: festa.properties.nome,
     localizacao: formatarLocalizacao(festa.properties.freguesia, festa.properties.concelho, festa.properties.distrito),
     cartazUrl: festa.properties.cartaz_url,
+    categoria: festa.properties.categoria_principal,
   }));
 
   return (

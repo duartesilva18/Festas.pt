@@ -29,6 +29,7 @@ export default async function PaginaConcelho({ params }: Props) {
     nome: festa.properties.nome,
     localizacao: formatarLocalizacao(festa.properties.freguesia, festa.properties.concelho, festa.properties.distrito),
     cartazUrl: festa.properties.cartaz_url,
+    categoria: festa.properties.categoria_principal,
   }));
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-white">

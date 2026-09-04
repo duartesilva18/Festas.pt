@@ -4,8 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { estiloCategoria } from "@/components/CartazFallback";
 
-export type OpcaoPesquisa = { id: string; nome: string; localizacao: string; cartazUrl: string | null };
+export type OpcaoPesquisa = { id: string; nome: string; localizacao: string; cartazUrl: string | null; categoria?: string };
 const CHAVE_PESQUISAS_RECENTES = "achafestas:pesquisas-recentes";
 
 function normalizarPesquisa(texto: string) {
@@ -99,13 +100,22 @@ function CampoPesquisa({ className = "", opcoes = [] }: { className?: string; op
                 onClick={() => abrirFesta(opcao)}
                 className="flex w-full cursor-pointer items-center gap-2.5 px-3.5 py-2 text-left transition hover:bg-[#EC2456]/[0.05]"
               >
-                <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#EC2456]/10 text-[#EC2456]">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-6.3-7-11a7 7 0 1 1 14 0c0 4.7-7 11-7 11z" /><circle cx="12" cy="10" r="2" /></svg>
-                  {opcao.cartazUrl && <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={opcao.cartazUrl} alt="" loading="lazy" decoding="async" className="absolute inset-0 size-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} />
-                  </>}
-                </span>
+                {(() => {
+                  // Sem cartaz — e só 5 das 31 festas têm — o mesmo pin rosa em
+                  // todas as linhas tornava a lista indistinguível. Usa-se o
+                  // gradiente e o ícone da categoria, a mesma linguagem que a
+                  // página da festa e o painel do mapa já usam.
+                  const estilo = estiloCategoria(opcao.categoria ?? "");
+                  return (
+                    <span className={`relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br ${estilo.fundo} ${estilo.cor}`}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={estilo.icone} /></svg>
+                      {opcao.cartazUrl && <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={opcao.cartazUrl} alt="" loading="lazy" decoding="async" className="absolute inset-0 size-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} />
+                      </>}
+                    </span>
+                  );
+                })()}
                 <span className="min-w-0"><span className="block truncate text-sm font-semibold text-[#102745]">{opcao.nome}</span><span className="block truncate text-[11px] text-[#1A2E4F]/55">{opcao.localizacao}</span></span>
               </button>{recentesVisiveis && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => removerRecente(opcao.id)} aria-label={`Remover ${opcao.nome} do histórico`} className="mr-2 flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-[#1A2E4F]/40 transition hover:bg-[#EC2456]/10 hover:text-[#EC2456]"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M6 6l12 12M18 6 6 18" /></svg></button>}
             </li>
@@ -279,8 +289,11 @@ function MenuUtilizador() {
 }
 
 export default function Navbar({ contagem, opcoesPesquisa = [] }: { contagem?: number; opcoesPesquisa?: OpcaoPesquisa[] }) {
+  // O header leva z-30 para ficar acima da faixa de convite (z-20), que é irmã
+  // e vem depois no DOM: sem isto o dropdown da pesquisa ficava preso neste
+  // contexto de empilhamento e a faixa atravessava-o.
   return (
-    <header className="z-20 shrink-0 bg-white">
+    <header className="z-30 shrink-0 bg-white">
       <div className="px-4 sm:px-6">
         <div className="flex h-16 items-center gap-4 sm:gap-6">
           <Link href="/" className="flex shrink-0 items-center">
